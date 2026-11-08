@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#101110">
+<title>EVENTMILE — Discover. Experience. Remember.</title>
+
+<style>
+:root{
+  --bg:#101110;
+  --panel:#181a18;
+  --panel2:#202320;
+  --text:#f4f5f0;
+  --muted:#a2a79e;
+  --lime:#c8ff4d;
+  --border:#30352f;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;line-height:1.5}
+a{color:inherit;text-decoration:none}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.container{width:min(1180px,92%);margin:auto}
+.hidden{display:none!important}
+
+.navbar{position:sticky;top:0;z-index:50;background:rgba(16,17,16,.96);border-bottom:1px solid var(--border)}
+.nav-inner{height:75px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.logo{font-size:23px;font-weight:900;letter-spacing:1.5px}
+.logo span{color:var(--lime)}
+.nav-links{display:flex;align-items:center;gap:25px}
+.nav-links a:not(.create-link){color:#d3d7cf;font-size:14px}
+.nav-links a:hover{color:var(--lime)}
+.create-link,.btn-primary{background:var(--lime);color:#101110!important;padding:11px 18px;border-radius:8px;font-weight:800;border:0}
+.menu-btn{display:none;background:none;color:white;border:1px solid var(--border);padding:8px 12px;border-radius:8px}
+
+.hero{padding:90px 0 70px;background:radial-gradient(ellipse at 75% 30%,rgba(200,255,77,.09),transparent 38%)}
+.eyebrow{color:var(--lime);font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase}
+.hero h1{font-size:clamp(42px,7vw,82px);line-height:1.04;letter-spacing:-3px;margin:18px 0}
+.hero h1 span{color:var(--lime)}
+.hero p{color:var(--muted);max-width:620px;font-size:18px}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
+.btn-secondary{border:1px solid #4a5047;padding:11px 18px;border-radius:8px;background:transparent;color:white;font-weight:700}
+.stats{display:flex;gap:35px;margin-top:48px;flex-wrap:wrap}
+.stat strong{display:block;font-size:25px}
+.stat small{color:var(--muted)}
+
+section{padding:65px 0}
+.section-heading{margin-bottom:25px}
+.section-heading h2{font-size:clamp(28px,4vw,42px);margin:5px 0}
+.section-heading p{color:var(--muted);margin:0}
+
+input,select,textarea{width:100%;background:#111311;color:white;border:1px solid var(--border);padding:12px;border-radius:8px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--lime)}
+.searchbar{display:flex;gap:10px;margin:25px 0;flex-wrap:wrap}
+.searchbar input{flex:1;min-width:220px}
+.searchbar select{width:auto;min-width:160px}
+
+.filters{display:flex;gap:9px;flex-wrap:wrap;margin:18px 0 28px}
+.filter{border:1px solid var(--border);background:transparent;color:white;padding:8px 15px;border-radius:100px}
+.filter.active,.filter:hover{background:var(--lime);color:#111;border-color:var(--lime)}
+
+.event-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.event-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:.2s}
+.event-card:hover{transform:translateY(-3px);border-color:#68764d}
+.event-cover{height:190px;background:linear-gradient(135deg,#303d27,#171a15);display:flex;align-items:center;justify-content:center;font-size:55px;overflow:hidden}
+.event-cover img{width:100%;height:100%;object-fit:cover}
+.event-body{padding:18px}
+.tag{display:inline-block;font-size:11px;color:var(--lime);border:1px solid #46542c;padding:4px 8px;border-radius:100px}
+.event-body h3{font-size:20px;margin:12px 0 8px}
+.event-meta{color:var(--muted);font-size:13px;display:grid;gap:5px}
+.event-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:10px}
+.text-btn{border:0;background:none;color:var(--lime);font-weight:700}
+.price{font-weight:800}
+
+.organiser-band{background:var(--lime);color:#101110;border-radius:18px;padding:42px;display:flex;justify-content:space-between;align-items:center;gap:25px}
+.organiser-band h2{font-size:clamp(28px,4vw,42px);margin:0}
+.organiser-band p{max-width:600px}
+.organiser-band .btn-primary{background:#101110;color:var(--lime)!important}
+
+.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.feature{border:1px solid var(--border);background:var(--panel);border-radius:12px;padding:22px}
+.feature .icon{font-size:28px}
+.feature h3{margin:12px 0 5px}
+.feature p{color:var(--muted);margin:0}
+
+.footer{border-top:1px solid var(--border);padding:35px 0;color:var(--muted);font-size:13px}
+.footer-inner{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+
+
+#organiser-dashboard{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.88);overflow-y:auto;padding:20px}
+.dashboard-shell{max-width:1100px;margin:auto;background:#121412;border:1px solid var(--border);border-radius:15px;overflow:hidden}
+.dash-top{position:sticky;top:0;background:#151715;border-bottom:1px solid var(--border);padding:16px 22px;display:flex;justify-content:space-between;align-items:center;z-index:5}
+.dash-top h2{margin:0}
+.close{background:transparent;color:white;border:1px solid var(--border);border-radius:8px;padding:8px 12px}
+.dash-content{padding:22px}
+.dash-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.tab-btn{background:transparent;color:white;border:1px solid var(--border);padding:9px 14px;border-radius:8px}
+.tab-btn.active{background:var(--lime);color:#111;border-color:var(--lime);font-weight:bold}
+.builder-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:20px}
+.form-panel,.side-panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;margin-bottom:6px;font-weight:bold}
+.field small{display:block;color:var(--muted);margin-top:5px}
+.card-row{border:1px solid var(--border);background:#131513;border-radius:10px;padding:14px;margin:12px 0}
+.row-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.remove-btn{color:#ff7777;border:1px solid #563333;background:transparent;border-radius:7px;padding:5px 9px}
+.add-btn{background:transparent;color:var(--lime);border:1px dashed #647747;padding:10px;border-radius:8px;width:100%;font-weight:bold}
+.checkbox-line{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
+.checkbox-line input{width:auto}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.btn-dark{background:#242824;border:1px solid var(--border);color:white;padding:11px 15px;border-radius:8px;font-weight:bold}
+.notice{background:#20251b;border:1px solid #43532c;color:#d9e8c0;padding:12px;border-radius:8px;font-size:13px;margin-bottom:16px}
+.saved-event{padding:12px;border:1px solid var(--border);border-radius:9px;margin:10px 0;background:#131513}
+.saved-event h4{margin:0 0 5px}
+.saved-event p{color:var(--muted);font-size:12px}
+.preview-box{border:1px solid var(--border);border-radius:12px;padding:18px;background:#151715}
+.preview-question{border:1px solid var(--border);padding:12px;border-radius:8px;margin:12px 0}
+
+/* EVENT DETAILS FULL PAGE */
+.event-details-overlay{position:fixed;inset:0;z-index:150;background:var(--bg);overflow-y:auto}
+.event-details-container{max-width:950px;margin:auto;padding-bottom:50px}
+.event-details-header{position:sticky;top:0;background:rgba(16,17,16,.96);padding:15px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);z-index:5}
+.event-details-poster{width:100%;height:380px;background:#202320;overflow:hidden;display:flex;justify-content:center;align-items:center;font-size:70px}
+.event-details-poster img{width:100%;height:100%;object-fit:cover}
+.event-details-content{padding:28px}
+.event-details-content h1{font-size:clamp(30px,5vw,48px);margin:12px 0}
+.event-info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:25px 0}
+.event-info-box{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:15px}
+.event-info-box small{display:block;color:var(--muted);margin-bottom:5px}
+.registration-section{margin-top:30px;background:var(--panel);padding:22px;border-radius:12px;border:1px solid var(--border)}
+.registration-option{border:1px solid var(--border);border-radius:9px;padding:15px;margin:10px 0;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.registration-option.selected{border-color:var(--lime);background:#20251b}
+.registration-option input{width:auto}
+.register-button{width:100%;background:var(--lime);color:#101110;padding:15px;border:none;border-radius:9px;font-weight:900;margin-top:20px}
+.registration-question{margin:15px 0}
+.registration-question label{display:block;margin-bottom:7px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--lime);color:#111;padding:12px 18px;border-radius:9px;font-weight:bold;z-index:250}
+
+@media(max-width:850px){
+ .event-grid{grid-template-columns:repeat(2,1fr)}
+ .builder-grid{grid-template-columns:1fr}
+ .feature-grid{grid-template-columns:1fr 1fr}
+ .organiser-band{display:block}
+}
+@media(max-width:620px){
+ .menu-btn{display:block}
+ .nav-links{display:none;position:absolute;top:65px;left:0;right:0;background:#151715;padding:18px;flex-direction:column;align-items:stretch}
+ .nav-links.open{display:flex}
+ .hero{padding:55px 0}
+ .hero h1{letter-spacing:-1px}
+ .event-grid,.feature-grid{grid-template-columns:1fr}
+ .form-row{grid-template-columns:1fr}
+ .dash-content{padding:12px}
+ .organiser-band{padding:24px}
+ .event-details-poster{height:230px}
+ .event-info-grid{grid-template-columns:1fr}
+ .event-details-content{padding:18px}
+}
+
+.user-menu-wrap{position:relative}
+.user-avatar{width:40px;height:40px;border-radius:50%;border:1px solid var(--lime);background:#242824;color:var(--lime);font-weight:800}
+.user-dropdown{position:absolute;right:0;top:50px;width:min(310px,90vw);background:#f8f9f7;color:#202320;border-radius:12px;padding:12px;box-shadow:0 15px 45px #0008;z-index:120}
+.user-dropdown button,.user-dropdown a{display:block;width:100%;text-align:left;padding:11px;border:0;background:transparent;color:#202320;border-radius:7px}
+.user-dropdown button:hover{background:#e9eee4}
+.user-dropdown .menu-label{font-size:11px;font-weight:800;color:#70766d;padding:8px 10px 3px}
+.modal-overlay{position:fixed;inset:0;background:#000b;z-index:150;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.modal-card{width:min(650px,100%);background:#151715;border:1px solid var(--border);border-radius:16px;padding:24px;max-height:92vh;overflow:auto}
+.choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.choice-card{background:var(--panel);border:1px solid var(--border);color:white;padding:20px;border-radius:12px;text-align:left}
+.choice-card:hover{border-color:var(--lime)}
+@media(max-width:600px){.choice-grid{grid-template-columns:1fr}.modal-card{padding:17px}}
+
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* AUTH + ORGANIZATION / COMMUNITY PROFILES */
+const EVENTMILE_SUPABASE_URL = "https://zlntjlnhheoawajzhsti.supabase.co";
+const EVENTMILE_SUPABASE_KEY = "sb_publishable_q_3dGDo0HOqSg1YHONzIag_zDgR_dcP";
+let eventmileSupabase = null;
+let eventmileUser = null;
+let eventmileAuthMode = "login";
+let eventmileSelectedHost = null;
+let eventmileHostFlowPending = false;
+let eventmileHostProfilesCache = [];
+let eventmileEventsCache = [];
+try { if(window.supabase) eventmileSupabase=window.supabase.createClient(EVENTMILE_SUPABASE_URL,EVENTMILE_SUPABASE_KEY); } catch(e){console.error(e);}
+
+function hideModal(id){$(id).classList.add('hidden');}
+function showModal(id){$(id).classList.remove('hidden');}
+function closeAuthModal(){hideModal('authModal');}
+function switchAuthMode(){
+ eventmileAuthMode=eventmileAuthMode==='login'?'signup':'login';
+ $('authHeading').textContent=eventmileAuthMode==='login'?'Log in':'Create account';
+ $('authSubmitBtn').textContent=eventmileAuthMode==='login'?'Log in':'Create account';
+ $('authNameWrap').classList.toggle('hidden',eventmileAuthMode!=='signup');
+ $('authSwitchText').textContent=eventmileAuthMode==='login'?'New to EVENTMILE?':'Already have an account?';
+ $('authSwitchBtn').textContent=eventmileAuthMode==='login'?'Create account':'Log in';
+ $('authPassword').autocomplete=eventmileAuthMode==='login'?'current-password':'new-password';
+ $('authStatus').classList.add('hidden');
+}
+function openAuthModal(){
+ eventmileAuthMode='login';switchAuthMode();switchAuthMode();
+ showModal('authModal');
+}
+async function submitAuth(){
+ const email=$('authEmail').value.trim(), password=$('authPassword').value;
+ const status=$('authStatus');status.classList.remove('hidden');
+ if(!eventmileSupabase){status.textContent='Supabase could not initialize. Check internet connection and project settings.';return;}
+ if(!email||!password){status.textContent='Please enter your email and password.';return;}
+ $('authSubmitBtn').disabled=true;
+ try{
+  if(eventmileAuthMode==='signup'){
+   const fullName=$('authFullName').value.trim();
+   if(!fullName){status.textContent='Please enter your full name.';return;}
+   const res=await eventmileSupabase.auth.signUp({email,password,options:{data:{full_name:fullName}}});
+   if(res.error)throw res.error;
+   if(res.data.session){eventmileUser=res.data.user;afterAuthSuccess();}
+   else status.textContent='Account created! Check your email to verify it, then log in.';
+  }else{
+   const res=await eventmileSupabase.auth.signInWithPassword({email,password});
+   if(res.error)throw res.error;
+   eventmileUser=res.data.user;afterAuthSuccess();
+  }
+ }catch(err){status.textContent=err.message||'Authentication failed.';}
+ finally{$('authSubmitBtn').disabled=false;}
+}
+function afterAuthSuccess(){
+ closeAuthModal();updateAccountMenu();
+ loadHostProfilesFromSupabase().catch(console.error);
+ loadEventsFromSupabase().catch(console.error);
+ if(eventmileHostFlowPending){eventmileHostFlowPending=false;showHostProfileChooser();}
+}
+function updateAccountMenu(){
+ const btn=$('userAvatarBtn');
+ if(eventmileUser){
+  btn.classList.remove('hidden');
+  btn.textContent=(eventmileUser.user_metadata?.full_name||eventmileUser.email||'U').charAt(0).toUpperCase();
+  $('menuUserName').textContent=eventmileUser.user_metadata?.full_name||eventmileUser.email||'EVENTMILE User';
+ }else btn.classList.add('hidden');
+}
+function toggleUserMenu(){if(!eventmileUser){openAuthModal();return;} $('userDropdown').classList.toggle('hidden');}
+async function startHostFlow(){
+ try {
+  if($('userDropdown')) $('userDropdown').classList.add('hidden');
+  // Refresh session in case the user logged in in another tab or just completed auth.
+  if(eventmileSupabase){
+   const {data,error}=await eventmileSupabase.auth.getSession();
+   if(error) console.warn('Session check:',error.message);
+   if(data?.session?.user) eventmileUser=data.session.user;
+  }
+  updateAccountMenu();
+  if(!eventmileUser){
+   eventmileHostFlowPending=true;
+   openAuthModal();
+   return;
+  }
+  eventmileHostFlowPending=false;
+  showHostProfileChooser();
+ } catch(err) {
+  console.error(err);
+  alert('Unable to open Host Studio: '+(err.message||'Please refresh the page and try again.'));
+ }
+}
+async function loadHostProfilesFromSupabase(){
+ if(!eventmileSupabase||!eventmileUser){eventmileHostProfilesCache=[];return []}
+ const {data,error}=await eventmileSupabase.from('host_profiles').select('*').eq('owner_id',eventmileUser.id).order('created_at',{ascending:false});
+ if(error)throw error;
+ eventmileHostProfilesCache=(data||[]).map(row=>({id:row.id,user_id:row.owner_id,type:row.type,name:row.name,logo:row.logo_url||'',description:row.description||'',location:row.location||'',email:row.contact_email||'',social:row.social_url||'',created_at:row.created_at}));
+ return eventmileHostProfilesCache;
+}
+function getHostProfiles(){return eventmileHostProfilesCache;}
+async function showHostProfileChooser(){
+ try{
+  const profiles=await loadHostProfilesFromSupabase();
+  $('existingProfiles').innerHTML=profiles.length?'<h3>Your host profiles</h3>'+profiles.map(p=>`<button class="btn-dark" style="width:100%;margin:5px 0;text-align:left" onclick="selectHostProfile('${p.id}')">${p.type==='organization'?'🏢':'🤝'} ${esc(p.name)} — Open dashboard</button>`).join(''):'';
+  showModal('profileChoiceModal');
+ }catch(err){alert('Could not load host profiles from Supabase: '+err.message);}
+}
+function openProfileForm(type){
+ hideModal('profileChoiceModal');
+ $('hostProfileType').value=type;
+ $('profileFormTitle').textContent=type==='organization'?'Create Organization Profile':'Create Community Profile';
+ $('hostNameLabel').textContent=type==='organization'?'Organization name *':'Community name *';
+ $('hostProfileName').placeholder=type==='organization'?'e.g. EVENTMILE Events Pvt Ltd':'e.g. Pune Running Community';
+ $('profileFormStatus').classList.add('hidden');
+ showModal('profileFormModal');
+}
+async function saveHostProfile(e){
+ e.preventDefault();
+ if(!eventmileUser){alert('Please log in first.');return;}
+ if(!eventmileSupabase){alert('Supabase connection is unavailable.');return;}
+ const type=$('hostProfileType').value;
+ const payload={owner_id:eventmileUser.id,type,name:$('hostProfileName').value.trim(),logo_url:$('hostProfileLogo').value.trim()||null,description:$('hostProfileDescription').value.trim()||null,location:$('hostProfileLocation').value.trim()||null,contact_email:$('hostProfileEmail').value.trim()||eventmileUser.email||null,social_url:$('hostProfileSocial').value.trim()||null};
+ const btn=e.submitter;if(btn)btn.disabled=true;
+ try{
+  const {data,error}=await eventmileSupabase.from('host_profiles').insert(payload).select().single();
+  if(error)throw error;
+  const profile={id:data.id,user_id:data.owner_id,type:data.type,name:data.name,logo:data.logo_url||'',description:data.description||'',location:data.location||'',email:data.contact_email||'',social:data.social_url||'',created_at:data.created_at};
+  eventmileHostProfilesCache.unshift(profile);eventmileSelectedHost=profile;
+  hideModal('profileFormModal');showHostDashboard(profile);
+ }catch(err){$('profileFormStatus').textContent='Save failed: '+err.message;$('profileFormStatus').classList.remove('hidden');}
+ finally{if(btn)btn.disabled=false;}
+}
+function selectHostProfile(id){
+ const profile=getHostProfiles().find(p=>p.id===id);
+ if(profile){eventmileSelectedHost=profile;hideModal('profileChoiceModal');showHostDashboard(profile);}
+}
+function showHostDashboard(profile){
+ $('hostDashboardName').textContent=profile.name;
+ $('hostDashboardProfileInfo').innerHTML=`<strong>${profile.type==='organization'?'Organization':'Community'} profile</strong><br>${esc(profile.description)}<br>${esc(profile.location||'Location not added')}`;
+ showModal('hostProfileDashboard');
+}
+function continueToEventBuilder(){
+ hideModal('hostProfileDashboard');openOrganiserDashboard();
+ if(eventmileSelectedHost){$('organiserName').value=eventmileSelectedHost.name;$('organiserEmail').value=eventmileSelectedHost.email||eventmileUser?.email||'';}
+}
+function showHostProfiles(){ $('userDropdown').classList.add('hidden');showHostProfileChooser(); }
+function openManageHostEvents(){ $('userDropdown').classList.add('hidden');hideModal('hostProfileDashboard');openOrganiserDashboard();showDashTab('manage');}
+function showMyTickets(){alert('My Tickets will be connected to EVENTMILE bookings when ticketing backend is added.');$('userDropdown').classList.add('hidden');}
+function showInbox(){alert('Inbox will be available after messaging is connected.');$('userDropdown').classList.add('hidden');}
+function showInterested(){alert('Interested events & plans will be available after attendee profiles are connected.');$('userDropdown').classList.add('hidden');}
+function showAccountSettings(){alert('Account settings: '+(eventmileUser?.email||''));$('userDropdown').classList.add('hidden');}
+async function signOutUser(){
+ if(eventmileSupabase)await eventmileSupabase.auth.signOut();
+ eventmileUser=null;eventmileSelectedHost=null;updateAccountMenu();$('userDropdown').classList.add('hidden');
+}
+if(eventmileSupabase){
+ eventmileSupabase.auth.getSession().then(({data})=>{eventmileUser=data.session?.user||null;updateAccountMenu();loadHostProfilesFromSupabase().catch(console.error);loadEventsFromSupabase().catch(console.error);});
+ eventmileSupabase.auth.onAuthStateChange((_event,session)=>{eventmileUser=session?.user||null;updateAccountMenu();if(eventmileUser){loadHostProfilesFromSupabase().catch(console.error);loadEventsFromSupabase().catch(console.error);}else{eventmileHostProfilesCache=[];}});
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+
+<body>
+
+<header class="navbar">
+<div class="container nav-inner">
+<a class="logo" href="#home">EVENT<span>MILE</span></a>
+<button class="menu-btn" onclick="toggleMenu()">☰</button>
+<nav class="nav-links" id="navLinks">
+<a href="#home" onclick="closeMenu()">Home</a>
+<a href="#explore" onclick="closeMenu()">Explore</a>
+<a href="#organisers" onclick="closeMenu()">Organisers</a>
+<a href="#about" onclick="closeMenu()">About</a>
+<a href="#" class="create-link" onclick="startHostFlow();closeMenu();return false;">+ Create Event</a>
+<div class="user-menu-wrap">
+  <button id="userAvatarBtn" class="user-avatar hidden" onclick="toggleUserMenu()" aria-label="Account menu">U</button>
+  <div id="userDropdown" class="user-dropdown hidden">
+    <div class="menu-label">MAIN PROFILE</div>
+    <div id="menuUserName" style="padding:8px 10px;font-weight:700">User</div>
+    <button onclick="showMyTickets()">🎟 My tickets</button>
+    <button onclick="showInbox()">✉ Inbox</button>
+    <button onclick="showInterested()">♡ Interested events & plans</button>
+    <hr>
+    <div class="menu-label">HOST CONTROL</div>
+    <button onclick="startHostFlow()">＋ Create an event</button>
+    <button onclick="openManageHostEvents()">▣ Manage events</button>
+    <button onclick="showHostProfiles()">↔ Switch host profile</button>
+    <hr>
+    <button onclick="showAccountSettings()">⚙ Account settings</button>
+    <button onclick="signOutUser()">↪ Log out</button>
+  </div>
+</div>
+</nav>
+</div>
+</header>
+
+<main>
+<section class="hero" id="home">
+<div class="container">
+<div class="eyebrow">Your next experience starts here</div>
+<h1>Discover. <span>Experience.</span><br>Remember.</h1>
+<p>Find events that bring people together. From running races and concerts to comedy shows, workshops and community experiences—your next mile starts here.</p>
+<div class="hero-actions">
+<a class="btn-primary" href="#explore">Explore Events ↗</a>
+<a class="btn-secondary" href="#" onclick="startHostFlow();return false;">Create an Event</a>
+</div>
+<div class="stats">
+<div class="stat"><strong>One platform</strong><small>Every kind of event</small></div>
+<div class="stat"><strong>Discover</strong><small>Your next experience</small></div>
+<div class="stat"><strong>Create</strong><small>Events made simple</small></div>
+</div>
+</div>
+</section>
+
+<section id="explore">
+<div class="container">
+<div class="section-heading">
+<div class="eyebrow">Find your next experience</div>
+<h2>Explore events</h2>
+<p>Discover events happening around you and beyond.</p>
+</div>
+
+<div class="searchbar">
+<input id="eventSearch" placeholder="Search events, categories or locations…" oninput="renderEvents()">
+<select id="locationFilter" onchange="renderEvents()">
+<option value="">All locations</option>
+<option>Pune</option><option>Mumbai</option><option>Online</option>
+</select>
+</div>
+
+<div class="filters">
+<button class="filter active" onclick="setCategory('All',this)">All</button>
+<button class="filter" onclick="setCategory('Running & Sports',this)">Running & Sports</button>
+<button class="filter" onclick="setCategory('Music & Concerts',this)">Music & Concerts</button>
+<button class="filter" onclick="setCategory('Comedy',this)">Comedy</button>
+<button class="filter" onclick="setCategory('Workshops',this)">Workshops</button>
+<button class="filter" onclick="setCategory('Community',this)">Community</button>
+<button class="filter" onclick="setCategory('Other',this)">Other</button>
+</div>
+
+<div class="event-grid" id="eventGrid"></div>
+<p id="noEvents" class="hidden" style="color:var(--muted)">No events found. Try another search.</p>
+</div>
+</section>
+
+<section id="organisers">
+<div class="container">
+<div class="organiser-band">
+<div>
+<div class="eyebrow" style="color:#283516">For event organisers</div>
+<h2>Have an event to bring to life?</h2>
+<p>Create custom ticket options, registration questions, dates, venue details and more.</p>
+</div>
+<a class="btn-primary" href="#" onclick="startHostFlow();return false;">Create Event ↗</a>
+</div>
+</div>
+</section>
+
+<section id="about">
+<div class="container">
+<div class="section-heading">
+<div class="eyebrow">Why EVENTMILE</div>
+<h2>Every event. One destination.</h2>
+<p>Built for attendees and organisers.</p>
+</div>
+<div class="feature-grid">
+<div class="feature"><div class="icon">✦</div><h3>Discover</h3><p>Find running events, concerts, comedy, workshops, sports and more.</p></div>
+<div class="feature"><div class="icon">◈</div><h3>Flexible Event Builder</h3><p>Create custom ticket categories and registration questions.</p></div>
+<div class="feature"><div class="icon">↗</div><h3>Simple Experience</h3><p>Event details, ticket options and attendee information.</p></div>
+</div>
+</div>
+</section>
+</main>
+
+<footer class="footer">
+<div class="container footer-inner">
+<div><a class="logo" href="#home">EVENT<span>MILE</span></a><p>Discover. Experience. Remember.</p></div>
+<div>© <span id="year"></span> EVENTMILE. All rights reserved.<br><small>Prototype — booking and payments are not live.</small></div>
+</div>
+</footer>
+
+
+<!-- EVENTMILE AUTH / HOST PROFILE FLOW -->
+<div id="authModal" class="modal-overlay hidden">
+ <div class="modal-card">
+  <div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">EVENTMILE ACCOUNT</div><h2 id="authHeading">Log in</h2></div><button class="close" onclick="closeAuthModal()">✕</button></div>
+  <p id="authHelp" style="color:var(--muted)">Log in to continue to Host Studio.</p>
+  <div id="authNameWrap" class="field hidden"><label>Full name</label><input id="authFullName" placeholder="Your full name"></div>
+  <div class="field"><label>Email</label><input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com"></div>
+  <div class="field"><label>Password</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="Password (minimum 6 characters)"></div>
+  <div id="authStatus" class="notice hidden"></div>
+  <button class="btn-primary" id="authSubmitBtn" style="width:100%" onclick="submitAuth()">Log in</button>
+  <p style="text-align:center;color:var(--muted);margin-top:15px"><span id="authSwitchText">New to EVENTMILE?</span> <button class="text-btn" onclick="switchAuthMode()" id="authSwitchBtn">Create account</button></p>
+ </div>
+</div>
+
+<div id="profileChoiceModal" class="modal-overlay hidden">
+ <div class="modal-card">
+  <div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">EVENTMILE HOST STUDIO</div><h2>Choose your host profile</h2></div><button class="close" onclick="hideModal('profileChoiceModal')">✕</button></div>
+  <p style="color:var(--muted)">Create events as an organization or a community. You can create multiple profiles later.</p>
+  <div class="choice-grid">
+   <button class="choice-card" onclick="openProfileForm('organization')"><div style="font-size:34px">🏢</div><h3>Create Organization Profile</h3><p style="color:var(--muted)">For companies, brands, event agencies and formal organizations.</p><strong style="color:var(--lime)">Create Organization →</strong></button>
+   <button class="choice-card" onclick="openProfileForm('community')"><div style="font-size:34px">🤝</div><h3>Create Community Profile</h3><p style="color:var(--muted)">For run clubs, student groups, NGOs and local communities.</p><strong style="color:var(--lime)">Create Community →</strong></button>
+  </div>
+  <div id="existingProfiles" style="margin-top:18px"></div>
+ </div>
+</div>
+
+<div id="profileFormModal" class="modal-overlay hidden">
+ <div class="modal-card">
+  <div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">HOST PROFILE</div><h2 id="profileFormTitle">Create profile</h2></div><button class="close" onclick="hideModal('profileFormModal')">✕</button></div>
+  <form id="hostProfileForm" onsubmit="saveHostProfile(event)">
+   <input type="hidden" id="hostProfileType">
+   <div class="field"><label id="hostNameLabel">Profile name *</label><input id="hostProfileName" required placeholder="Name of your organization/community"></div>
+   <div class="field"><label>Profile logo / image URL (optional)</label><input id="hostProfileLogo" type="url" placeholder="https://..."></div>
+   <div class="field"><label>Description *</label><textarea id="hostProfileDescription" rows="3" required placeholder="Tell people about your organization or community"></textarea></div>
+   <div class="form-row">
+    <div class="field"><label>Location</label><input id="hostProfileLocation" placeholder="Pune, Maharashtra"></div>
+    <div class="field"><label>Contact email</label><input id="hostProfileEmail" type="email" placeholder="contact@example.com"></div>
+   </div>
+   <div class="field"><label>Website / Instagram (optional)</label><input id="hostProfileSocial" placeholder="Website or social link"></div>
+   <div id="profileFormStatus" class="notice hidden"></div>
+   <button class="btn-primary" type="submit" style="width:100%">Save Profile & Continue</button>
+  </form>
+ </div>
+</div>
+
+<div id="hostProfileDashboard" class="modal-overlay hidden">
+ <div class="modal-card">
+  <div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">EVENTMILE HOST STUDIO</div><h2 id="hostDashboardName">Host dashboard</h2></div><button class="close" onclick="hideModal('hostProfileDashboard')">✕</button></div>
+  <div id="hostDashboardProfileInfo" class="notice"></div>
+  <div class="choice-grid">
+   <button class="choice-card" onclick="continueToEventBuilder()"><div style="font-size:30px">＋</div><h3>Create an event</h3><p style="color:var(--muted)">Build your event and registration options.</p></button>
+   <button class="choice-card" onclick="openManageHostEvents()"><div style="font-size:30px">▣</div><h3>Manage events</h3><p style="color:var(--muted)">View your saved events.</p></button>
+  </div>
+  <button class="btn-dark" style="margin-top:15px" onclick="showHostProfiles()">Switch host profile</button>
+ </div>
+</div>
+
+<!-- ORGANISER DASHBOARD -->
+<div id="organiser-dashboard" class="hidden">
+<div class="dashboard-shell">
+<div class="dash-top">
+<div><div class="eyebrow">EVENTMILE ORGANISER STUDIO</div><h2>Create your event</h2></div>
+<button class="close" onclick="closeOrganiserDashboard()">✕ Close</button>
+</div>
+
+<div class="dash-content">
+<div class="notice">Prototype: drafts and demo events are stored in this browser. Real public publishing, accounts, registration and payments need backend integration.</div>
+
+<div class="dash-tabs">
+<button class="tab-btn active" id="tabBuilder" onclick="showDashTab('builder')">Event Builder</button>
+<button class="tab-btn" id="tabPreview" onclick="showDashTab('preview')">Attendee Preview</button>
+<button class="tab-btn" id="tabManage" onclick="showDashTab('manage')">My Events</button>
+</div>
+
+<div id="builderTab">
+<div class="builder-grid">
+<div class="form-panel">
+<h3>1. Event information</h3>
+
+<div class="field"><label>Event title *</label><input id="eventTitle" placeholder="e.g. Pune Unity Run 2026"></div>
+
+<div class="form-row">
+<div class="field"><label>Category *</label>
+<select id="eventCategory">
+<option>Running & Sports</option><option>Music & Concerts</option><option>Comedy</option><option>Workshops</option><option>Community</option><option>Food & Drink</option><option>Business</option><option>Education</option><option>Arts & Culture</option><option>Other</option>
+</select></div>
+<div class="field"><label>Age requirement</label><input id="eventAge" placeholder="All ages / 16+"></div>
+</div>
+
+<div class="form-row">
+<div class="field"><label>Event date *</label><input id="eventDate" type="date"></div>
+<div class="field"><label>Start time</label><input id="eventTime" type="time"></div>
+</div>
+
+<div class="form-row">
+<div class="field"><label>Location / venue *</label><input id="eventLocation" placeholder="Venue, city or Online"></div>
+<div class="field"><label>End date (optional)</label><input id="eventEndDate" type="date"></div>
+</div>
+
+<div class="field"><label>Poster image URL</label><input id="eventImage" placeholder="https://example.com/poster.jpg"></div>
+<div class="field"><label>Event description *</label><textarea id="eventDescription" rows="4" placeholder="Tell attendees what to expect…"></textarea></div>
+
+<div class="form-row">
+<div class="field"><label>Organiser / organisation</label><input id="organiserName" placeholder="Organisation name"></div>
+<div class="field"><label>Contact email</label><input id="organiserEmail" type="email" placeholder="hello@example.com"></div>
+</div>
+
+<hr style="border-color:var(--border)">
+<h3>2. Tickets / participation options</h3>
+<p style="color:var(--muted);font-size:13px">Add distances, ticket types, time slots, seats, packages or other options.</p>
+<div id="ticketRows"></div>
+<button class="add-btn" onclick="addTicket()">＋ Add ticket / option</button>
+
+<hr style="border-color:var(--border);margin-top:25px">
+<h3>3. Registration questions</h3>
+<p style="color:var(--muted);font-size:13px">Add questions like Google Forms.</p>
+<div id="questionRows"></div>
+<button class="add-btn" onclick="addQuestion()">＋ Add registration question</button>
+
+<div class="actions">
+<button class="btn-primary" onclick="saveEvent('Draft')">Save Draft</button>
+<button class="btn-primary" onclick="saveEvent('Published')">Publish Event</button>
+<button class="btn-dark" onclick="showDashTab('preview')">Preview Form</button>
+<button class="btn-dark" onclick="resetBuilder()">Clear Form</button>
+</div>
+</div>
+
+<div class="side-panel">
+<h3>Builder tips</h3>
+<div class="card-row"><strong>🏃 Running / sports</strong><p>3K, 5K, 10K, T-shirt sizes and runner information.</p></div>
+<div class="card-row"><strong>🎤 Concert / comedy</strong><p>Regular, VIP, seating and ticket prices.</p></div>
+<div class="card-row"><strong>🎓 Workshops</strong><p>Different sessions, time slots and packages.</p></div>
+<div class="card-row"><strong>Flexible questions</strong><p>Short answer, long answer, multiple choice, dropdown and checkboxes.</p></div>
+</div>
+</div>
+</div>
+
+<div id="previewTab" class="hidden">
+<div class="preview-box" id="attendeePreview"></div>
+<div class="actions"><button class="btn-dark" onclick="showDashTab('builder')">← Back to builder</button></div>
+</div>
+
+<div id="manageTab" class="hidden">
+<h3>Your saved events</h3>
+<div id="savedEventsList"></div>
+<div class="actions"><button class="btn-dark" onclick="resetBuilder();showDashTab('builder')">＋ Create another event</button></div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- EVENT DETAILS AND REGISTRATION PAGE -->
+<div id="eventDetailsPage" class="event-details-overlay hidden">
+<div class="event-details-container">
+<div class="event-details-header">
+<a class="logo" href="#">EVENT<span>MILE</span></a>
+<button class="btn-dark" onclick="closeEventDetails()">✕ Close</button>
+</div>
+<div id="eventDetailsContent"></div>
+</div>
+</div>
+
+<div id="toastHolder"></div>
+
+<script>
+const sampleEvents=[
+{
+id:'sample1',
+title:'Next Mile Run',
+category:'Running & Sports',
+date:'2026-11-15',
+time:'06:00',
+location:'Kondwa, Pune',
+description:'Join us for a community running experience. Choose your distance, meet fellow runners and enjoy the energy of the city.',
+age:'16+',
+organiser:'Next Mile Community',
+image:'',
+tickets:[
+{name:'5K',price:399,quantity:300},
+{name:'10K',price:599,quantity:200},
+{name:'21K',price:799,quantity:100}
+],
+questions:[
+{text:'What is your running experience?',type:'multiple',required:true,options:['Beginner','Intermediate','Experienced']},
+{text:'Emergency contact number',type:'short',required:true,options:[]}
+]
+},
+{
+id:'sample2',
+title:'Live Music Night',
+category:'Music & Concerts',
+date:'2026-11-21',
+time:'19:00',
+location:'Pune',
+description:'A night of live music and unforgettable performances.',
+age:'All ages',
+organiser:'EVENTMILE Community',
+image:'',
+tickets:[{name:'General Entry',price:499,quantity:300}],
+questions:[]
+},
+{
+id:'sample3',
+title:'Stand-Up Comedy Evening',
+category:'Comedy',
+date:'2026-11-28',
+time:'20:00',
+location:'Pune',
+description:'Enjoy an evening of comedy and good vibes.',
+age:'16+',
+organiser:'Comedy Club',
+image:'',
+tickets:[{name:'Regular',price:399,quantity:150},{name:'VIP',price:799,quantity:50}],
+questions:[]
+},
+{
+id:'sample4',
+title:'Creative Skills Workshop',
+category:'Workshops',
+date:'2026-12-05',
+time:'10:00',
+location:'Online',
+description:'Learn something new in this interactive workshop.',
+age:'All ages',
+organiser:'Workshop Studio',
+image:'',
+tickets:[{name:'Standard',price:299,quantity:100}],
+questions:[]
+}
+];
+
+let selectedCategory='All';
+let editingId=null;
+const $=id=>document.getElementById(id);
+
+function getEvents(){return eventmileEventsCache;}
+function setEvents(events){eventmileEventsCache=events;}
+function rowToEvent(row){return {id:row.id,title:row.title,category:row.category,description:row.description||'',date:row.event_date||'',time:row.event_time||'',location:row.venue||'',age:row.age_requirement||'All ages',endDate:row.end_date||'',image:row.image_url||'',organiser:eventmileHostProfilesCache.find(p=>p.id===row.host_profile_id)?.name||'',email:row.organiser_email||'',tickets:row.tickets||[{name:'General Admission',price:Number(row.price)||0,quantity:Number(row.capacity)||0}],questions:row.questions||[],status:String(row.status||'draft').toLowerCase()==='published'?'Published':'Draft',ownerId:row.owner_id,hostProfileId:row.host_profile_id};}
+async function loadEventsFromSupabase(){
+ if(!eventmileSupabase)return [];
+ const {data,error}=await eventmileSupabase.from('events').select('*').order('created_at',{ascending:false});
+ if(error){console.warn('EVENTMILE event load:',error.message);return eventmileEventsCache;}
+ eventmileEventsCache=(data||[]).map(rowToEvent);
+ renderEvents();
+ if($('savedEventsList'))renderSavedEvents();
+ return eventmileEventsCache;
+}
+function allEvents(){return [...getEvents().filter(e=>e.status==='Published'),...sampleEvents]}
+function money(n){return Number(n)===0?'Free':'₹'+Number(n).toLocaleString('en-IN')}
+function niceDate(d){
+ if(!d)return 'Date to be announced';
+ return new Date(d+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+}
+function esc(s){
+ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderEvents(){
+ const query=($('eventSearch').value||'').toLowerCase();
+ const location=$('locationFilter').value||'';
+
+ const events=allEvents().filter(e=>
+  (selectedCategory==='All'||e.category===selectedCategory)&&
+  (!location||String(e.location).toLowerCase().includes(location.toLowerCase()))&&
+  (`${e.title} ${e.category} ${e.location} ${e.description}`.toLowerCase().includes(query))
+ );
+
+ $('eventGrid').innerHTML=events.map(e=>`
+ <article class="event-card">
+  <div class="event-cover">
+   ${e.image?`<img src="${esc(e.image)}" alt="${esc(e.title)}">`:'✦'}
+  </div>
+  <div class="event-body">
+   <span class="tag">${esc(e.category)}</span>
+   <h3>${esc(e.title)}</h3>
+   <div class="event-meta">
+    <span>📅 ${niceDate(e.date)} ${e.time?'· '+esc(e.time):''}</span>
+    <span>📍 ${esc(e.location)}</span>
+    <span>👥 ${esc(e.age||'All ages')}</span>
+   </div>
+   <div class="event-bottom">
+    <span class="price">${e.tickets?.length?money(Math.min(...e.tickets.map(t=>Number(t.price)||0))):'Details soon'}</span>
+    <button class="text-btn" onclick="eventDetails('${e.id}')">View details ↗</button>
+   </div>
+  </div>
+ </article>
+ `).join('');
+
+ $('noEvents').classList.toggle('hidden',events.length>0);
+}
+
+function setCategory(category,button){
+ selectedCategory=category;
+ document.querySelectorAll('.filter').forEach(b=>b.classList.remove('active'));
+ button.classList.add('active');
+ renderEvents();
+}
+
+function eventDetails(id){
+ const event=allEvents().find(e=>e.id===id);
+ if(!event)return;
+
+ const content=$('eventDetailsContent');
+
+ content.innerHTML=`
+ <div class="event-details-poster">
+  ${event.image?`<img src="${esc(event.image)}" alt="${esc(event.title)}">`:'✦'}
+ </div>
+
+ <div class="event-details-content">
+  <span class="tag">${esc(event.category)}</span>
+  <h1>${esc(event.title)}</h1>
+  <p style="color:var(--muted)">${esc(event.description)}</p>
+
+  <div class="event-info-grid">
+   <div class="event-info-box">
+    <small>📅 DATE & TIME</small>
+    <strong>${niceDate(event.date)} ${event.time?'· '+esc(event.time):''}</strong>
+   </div>
+   <div class="event-info-box">
+    <small>📍 LOCATION</small>
+    <strong>${esc(event.location||'Location TBA')}</strong>
+   </div>
+   <div class="event-info-box">
+    <small>👥 AGE REQUIREMENT</small>
+    <strong>${esc(event.age||'All ages')}</strong>
+   </div>
+   <div class="event-info-box">
+    <small>🏢 ORGANISER</small>
+    <strong>${esc(event.organiser||'Event organiser')}</strong>
+   </div>
+  </div>
+
+  <h2>About this event</h2>
+  <p>${esc(event.description)}</p>
+
+  <div class="registration-section">
+   <h2>Registration</h2>
+   <p style="color:var(--muted)">Choose your ticket or participation option.</p>
+
+   ${(event.tickets||[]).map((ticket,index)=>`
+    <label class="registration-option">
+     <span>
+      <strong>${esc(ticket.name)}</strong><br>
+      <small style="color:var(--muted)">${ticket.quantity||'Limited'} spots available</small>
+     </span>
+     <span>
+      <strong>${money(ticket.price)}</strong>
+      <input type="radio" name="eventTicket" value="${index}" ${index===0?'checked':''}>
+     </span>
+    </label>
+   `).join('')}
+
+   <h3>Attendee information</h3>
+
+   <div class="field">
+    <label>Full name *</label>
+    <input id="registrationName" placeholder="Enter your full name">
+   </div>
+
+   <div class="field">
+    <label>Email address *</label>
+    <input id="registrationEmail" type="email" placeholder="Enter email">
+   </div>
+
+   <div class="field">
+    <label>Phone number</label>
+    <input id="registrationPhone" type="tel" placeholder="Enter phone number">
+   </div>
+
+   ${(event.questions||[]).map((q,index)=>`
+    <div class="registration-question">
+     <label>${esc(q.text)} ${q.required?'*':''}</label>
+
+     ${q.type==='paragraph'
+      ?`<textarea id="customQuestion${index}" rows="3"></textarea>`
+      :q.type==='multiple'
+       ?q.options.map(option=>`<label><input type="radio" name="customQuestion${index}" value="${esc(option)}"> ${esc(option)}</label>`).join('')
+       :q.type==='checkbox'
+        ?q.options.map((option,optIndex)=>`<label><input type="checkbox" name="customQuestion${index}" id="customQuestion${index}_${optIndex}" value="${esc(option)}"> ${esc(option)}</label>`).join('')
+        :q.type==='dropdown'
+         ?`<select id="customQuestion${index}">${q.options.map(option=>`<option>${esc(option)}</option>`).join('')}</select>`
+         :`<input id="customQuestion${index}" placeholder="Your answer">`
+     }
+    </div>
+   `).join('')}
+
+   <button class="register-button" onclick="registerForEvent('${event.id}')">
+    Register Now →
+   </button>
+
+   <p style="font-size:12px;color:var(--muted)">Your registration will be saved to EVENTMILE. Online payment is not enabled yet.</p>
+  </div>
+ </div>
+ `;
+
+ $('eventDetailsPage').classList.remove('hidden');
+ document.body.style.overflow='hidden';
+ $('eventDetailsPage').scrollTop=0;
+}
+
+function closeEventDetails(){
+ $('eventDetailsPage').classList.add('hidden');
+ document.body.style.overflow='';
+}
+
+async function registerForEvent(eventId){
+ const name=$('registrationName').value.trim();
+ const email=$('registrationEmail').value.trim();
+ const phone=$('registrationPhone')?.value.trim()||'';
+ if(!name||!email){alert('Please enter your name and email.');return;}
+ const emailValid=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+ if(!emailValid){alert('Please enter a valid email address.');return;}
+ if(!eventmileSupabase){alert('Connection error. Please refresh and try again.');return;}
+ const event=allEvents().find(e=>e.id===eventId);
+ if(!event){alert('Event not found.');return;}
+ // Sample events are illustrative and do not exist in the database.
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(eventId))){
+  alert('This is a demo event. Please register for a published EVENTMILE event.');return;
+ }
+ const selected=document.querySelector('input[name="eventTicket"]:checked');
+ const ticket=(event.tickets||[])[selected?Number(selected.value):0]||{name:'General Admission',price:0};
+ const answers={};
+ (event.questions||[]).forEach((q,index)=>{
+  const key=q.text||('Question '+(index+1));
+  if(q.type==='multiple'){
+   const chosen=document.querySelector(`input[name="customQuestion${index}"]:checked`);answers[key]=chosen?.value||'';
+  }else if(q.type==='checkbox'){
+   answers[key]=Array.from(document.querySelectorAll(`input[name="customQuestion${index}"]:checked`)).map(el=>el.value);
+  }else{
+   answers[key]=$('customQuestion'+index)?.value?.trim()||'';
+  }
+  if(q.required && (!answers[key] || (Array.isArray(answers[key])&&!answers[key].length))){
+   answers.__missing=key;
+  }
+ });
+ if(answers.__missing){alert('Please answer the required question: '+answers.__missing);delete answers.__missing;return;}
+ const btn=document.querySelector('.register-button');if(btn){btn.disabled=true;btn.textContent='Saving registration…';}
+ try{
+  const payload={event_id:eventId,user_id:eventmileUser?.id||null,attendee_name:name,attendee_email:email,attendee_phone:phone||null,ticket_quantity:1,ticket_name:ticket.name||'Selected ticket',ticket_price:Number(ticket.price)||0,registration_status:'confirmed',answers};
+  // Logged-in accounts are limited to one registration per event by the database unique constraint.
+  // If this account already registered, show the existing registration instead of a duplicate-key error.
+  if(payload.user_id){
+   const {data:existing,error:lookupError}=await eventmileSupabase.from('registrations').select('id,attendee_name,ticket_name,ticket_price,registration_status').eq('event_id',eventId).eq('user_id',payload.user_id).maybeSingle();
+   if(lookupError)throw lookupError;
+   if(existing){
+    alert('You are already registered for this event.\n\nEvent: '+event.title+'\nName: '+(existing.attendee_name||name)+'\nTicket: '+(existing.ticket_name||'Selected ticket')+'\nRegistration ID: '+existing.id+'\n\nNo additional registration was created.');
+    closeEventDetails();return;
+   }
+  }
+  // Capacity and duplicate checks happen atomically inside Supabase.
+  const {data,error}=await eventmileSupabase.rpc('register_event_ticket',{
+   p_event_id:eventId,
+   p_attendee_name:name,
+   p_attendee_email:email,
+   p_attendee_phone:phone||null,
+   p_ticket_quantity:1,
+   p_ticket_name:payload.ticket_name,
+   p_ticket_price:payload.ticket_price,
+   p_answers:answers
+  });
+  if(error){
+   const msg=String(error.message||'');
+   if(msg.includes('already registered')){
+    alert('You are already registered for this event.\n\nEvent: '+event.title+'\nNo additional registration was created.');closeEventDetails();return;
+   }
+   if(msg.includes('not enough tickets')){alert('Sorry, this event is sold out or has insufficient tickets remaining.');return;}
+   if(msg.includes('not open for registration')){alert('This event is not currently open for registration.');return;}
+   throw error;
+  }
+  const result=Array.isArray(data)?data[0]:data;
+  alert('Registration confirmed!\n\nEvent: '+event.title+'\nName: '+name+'\nTicket: '+payload.ticket_name+'\nPrice: '+money(payload.ticket_price)+'\nRegistration ID: '+result.registration_id+'\nTickets remaining: '+(result.tickets_remaining===null?'Not limited':result.tickets_remaining)+'\n\nNo online payment was collected.');
+  closeEventDetails();
+ }catch(err){console.error('EVENTMILE registration error:',err);alert('Registration could not be saved: '+(err.message||'Unknown error')+'\nPlease try again.');}
+ finally{if(btn){btn.disabled=false;btn.textContent='Register Now →';}}
+}
+
+/* ORGANISER DASHBOARD */
+
+function toggleMenu(){$('navLinks').classList.toggle('open')}
+function closeMenu(){$('navLinks').classList.remove('open')}
+function openOrganiserDashboard(){
+ $('organiser-dashboard').classList.remove('hidden');
+ document.body.style.overflow='hidden';
+ showDashTab('builder');
+}
+function closeOrganiserDashboard(){
+ $('organiser-dashboard').classList.add('hidden');
+ document.body.style.overflow='';
+ renderEvents();
+}
+
+function showDashTab(tab){
+ ['builder','preview','manage'].forEach(t=>{
+  $(t+'Tab').classList.toggle('hidden',t!==tab);
+  $('tab'+t[0].toUpperCase()+t.slice(1)).classList.toggle('active',t===tab);
+ });
+ if(tab==='preview')renderPreview();
+ if(tab==='manage')renderSavedEvents();
+}
+
+function addTicket(ticket={}){
+ const row=document.createElement('div');
+ row.className='card-row ticket-row';
+
+ row.innerHTML=`
+ <div class="row-head"><strong>Ticket / option</strong>
+ <button class="remove-btn" onclick="this.closest('.ticket-row').remove()">Remove</button></div>
+ <div class="form-row">
+  <div class="field"><label>Option name *</label>
+   <input class="ticket-name" placeholder="5K / VIP / Regular" value="${esc(ticket.name||'')}">
+  </div>
+  <div class="field"><label>Price ₹ *</label>
+   <input class="ticket-price" type="number" min="0" value="${ticket.price??0}">
+  </div>
+ </div>
+ <div class="field"><label>Quantity / capacity</label>
+  <input class="ticket-quantity" type="number" min="1" value="${ticket.quantity??100}">
+ </div>`;
+
+ $('ticketRows').appendChild(row);
+}
+
+function addQuestion(q={}){
+ const row=document.createElement('div');
+ row.className='card-row question-row';
+
+ row.innerHTML=`
+ <div class="row-head"><strong>Registration question</strong>
+ <button class="remove-btn" onclick="this.closest('.question-row').remove()">Remove</button></div>
+
+ <div class="field"><label>Question *</label>
+ <input class="question-text" placeholder="e.g. T-shirt size" value="${esc(q.text||'')}"></div>
+
+ <div class="form-row">
+  <div class="field"><label>Answer type</label>
+   <select class="question-type" onchange="questionTypeChanged(this)">
+    <option value="short">Short answer</option>
+    <option value="paragraph">Long answer</option>
+    <option value="multiple">Multiple choice</option>
+    <option value="dropdown">Dropdown</option>
+    <option value="checkbox">Checkboxes</option>
+   </select>
+  </div>
+  <div class="field"><label>Settings</label>
+   <label class="checkbox-line"><input type="checkbox" class="question-required" ${q.required?'checked':''}> Required</label>
+  </div>
+ </div>
+
+ <div class="choice-options hidden">
+  <div class="field"><label>Options (one per line)</label>
+   <textarea class="question-options" rows="3">${esc((q.options||[]).join('\n'))}</textarea>
+  </div>
+ </div>`;
+
+ $('questionRows').appendChild(row);
+ row.querySelector('.question-type').value=q.type||'short';
+ questionTypeChanged(row.querySelector('.question-type'));
+}
+
+function questionTypeChanged(select){
+ const row=select.closest('.question-row');
+ row.querySelector('.choice-options').classList.toggle('hidden',
+ !['multiple','dropdown','checkbox'].includes(select.value));
+}
+
+function collectForm(){
+ const tickets=[...document.querySelectorAll('.ticket-row')].map(r=>({
+  name:r.querySelector('.ticket-name').value.trim(),
+  price:Number(r.querySelector('.ticket-price').value||0),
+  quantity:Number(r.querySelector('.ticket-quantity').value||0)
+ }));
+
+ const questions=[...document.querySelectorAll('.question-row')].map(r=>{
+  const type=r.querySelector('.question-type').value;
+  return{
+   text:r.querySelector('.question-text').value.trim(),
+   type,
+   required:r.querySelector('.question-required').checked,
+   options:['multiple','dropdown','checkbox'].includes(type)
+    ?r.querySelector('.question-options').value.split('\n').map(x=>x.trim()).filter(Boolean)
+    :[]
+  };
+ });
+
+ return{
+  title:$('eventTitle').value.trim(),
+  category:$('eventCategory').value,
+  age:$('eventAge').value.trim()||'All ages',
+  date:$('eventDate').value,
+  time:$('eventTime').value,
+  location:$('eventLocation').value.trim(),
+  endDate:$('eventEndDate').value,
+  image:$('eventImage').value.trim(),
+  description:$('eventDescription').value.trim(),
+  organiser:$('organiserName').value.trim(),
+  email:$('organiserEmail').value.trim(),
+  tickets,questions
+ };
+}
+
+function validateEvent(e){
+ if(!e.title||!e.date||!e.location||!e.description){
+  toast('Fill in event title, date, location and description.');
+  return false;
+ }
+ if(!e.tickets.length||e.tickets.some(t=>!t.name||t.price<0)){
+  toast('Add at least one valid ticket option.');
+  return false;
+ }
+ if(e.questions.some(q=>!q.text)){
+  toast('Complete or remove blank questions.');
+  return false;
+ }
+ return true;
+}
+
+async function saveEvent(status){
+ const e=collectForm();
+ if(!validateEvent(e))return;
+ if(!eventmileUser||!eventmileSupabase){toast('Please log in before saving an event.');return;}
+ if(!eventmileSelectedHost){toast('Please select a host profile first.');return;}
+ const payload={owner_id:eventmileUser.id,host_profile_id:eventmileSelectedHost.id,title:e.title,category:e.category,description:e.description,event_date:e.date||null,event_time:e.time||null,venue:e.location,city:(e.location.match(/Pune/i)?'Pune':'Pune'),price:e.tickets.length?Math.min(...e.tickets.map(t=>Number(t.price)||0)):0,capacity:e.tickets.reduce((sum,t)=>sum+(Number(t.quantity)||0),0),image_url:e.image||null,status:status.toLowerCase(),age_requirement:e.age||'All ages',end_date:e.endDate||null,organiser_email:e.email||eventmileUser.email||null,tickets:e.tickets,questions:e.questions};
+ const saveBtn=document.querySelector('[onclick*="saveEvent"]');if(saveBtn)saveBtn.disabled=true;
+ try{
+  let query;
+  if(editingId)query=eventmileSupabase.from('events').update(payload).eq('id',editingId).select().single();
+  else query=eventmileSupabase.from('events').insert(payload).select().single();
+  const {data,error}=await query;if(error)throw error;
+  const mapped=rowToEvent(data);
+  const idx=eventmileEventsCache.findIndex(x=>x.id===mapped.id);
+  if(idx>=0)eventmileEventsCache[idx]=mapped;else eventmileEventsCache.unshift(mapped);
+  editingId=mapped.id;
+  toast(status==='Published'?'Event published to EVENTMILE!':'Draft saved to Supabase!');
+  renderEvents();renderSavedEvents();showDashTab('manage');
+ }catch(err){toast('Supabase save failed: '+err.message);console.error(err);}
+ finally{if(saveBtn)saveBtn.disabled=false;}
+}
+
+function renderPreview(){
+ const e=collectForm();
+
+ $('attendeePreview').innerHTML=`
+ <span class="tag">${esc(e.category)}</span>
+ <h2>${esc(e.title||'Your event title')}</h2>
+ <p style="color:var(--muted)">${niceDate(e.date)} ${e.time||''} · ${esc(e.location||'Location')}</p>
+ <p>${esc(e.description||'Event description')}</p>
+ <h3>Ticket options</h3>
+ ${e.tickets.map((t,i)=>`<div class="preview-question"><label><input type="radio" name="previewTicket" ${i===0?'checked':''}> ${esc(t.name)} — ${money(t.price)}</label></div>`).join('')}
+ <h3>Registration questions</h3>
+ ${e.questions.map(q=>`<div class="preview-question"><label>${esc(q.text)}</label><input placeholder="Answer"></div>`).join('')}
+ `;
+}
+
+function renderSavedEvents(){
+ const events=getEvents();
+
+ $('savedEventsList').innerHTML=events.length?events.map(e=>`
+ <div class="saved-event">
+ <h4>${esc(e.title)} <span class="tag">${esc(e.status)}</span></h4>
+ <p>${esc(e.category)} · ${niceDate(e.date)} · ${esc(e.location)}</p>
+ <button class="btn-dark" onclick="editEvent('${e.id}')">Edit</button>
+ <button class="btn-dark" onclick="changeStatus('${e.id}')">${e.status==='Published'?'Unpublish':'Publish'}</button>
+ <button class="btn-dark" onclick="loadEventRegistrations('${e.id}')">View attendees</button>
+ <button class="btn-dark" onclick="openEventQRScanner('${e.id}')">Scan QR check-in</button>
+ <button class="btn-dark" onclick="exportEventAttendees('${e.id}')">Download attendees CSV</button>
+ <button class="remove-btn" onclick="deleteEvent('${e.id}')">Delete</button>
+ <div id="attendees-${e.id}" style="width:100%;margin-top:10px"></div>
+ </div>
+ `).join(''):'<p>No saved events yet.</p>';
+}
+
+async function loadEventRegistrations(eventId){
+ const box=$('attendees-'+eventId);if(!box)return;
+ if(!eventmileSupabase||!eventmileUser){box.innerHTML='<p>Please log in as the event organiser.</p>';return;}
+ box.innerHTML='<p>Loading registrations…</p>';
+ try{
+  const {data,error}=await eventmileSupabase.from('registrations').select('*').eq('event_id',eventId).order('created_at',{ascending:false});
+  if(error)throw error;
+  if(!data?.length){box.innerHTML='<p>No registrations yet.</p>';return;}
+  const checkedInCount=data.filter(r=>r.checked_in_at).length;
+  box.innerHTML='<h4>Attendees ('+data.length+') · Checked in: '+checkedInCount+'</h4>'+data.map(r=>`<div class="card-row" style="margin:8px 0;padding:12px"><strong>${esc(r.attendee_name||'Attendee')}</strong><p>${esc(r.attendee_email||'')} ${r.attendee_phone?' · '+esc(r.attendee_phone):''}</p><p>${esc(r.ticket_name||'Ticket')} · ${money(r.ticket_price||0)} · ${esc(r.registration_status||'')}</p><p><strong>${r.checked_in_at?'✅ Checked in':'⏳ Not checked in'}</strong>${r.checked_in_at?' · '+new Date(r.checked_in_at).toLocaleString('en-IN'):''}</p><small>Registered: ${r.created_at?new Date(r.created_at).toLocaleString('en-IN'):'—'}</small>${r.ticket_code?`<p><button class="btn-dark" onclick="showQRCodeTicket('${r.ticket_code}',decodeURIComponent('${encodeURIComponent(r.attendee_name||'Attendee')}'),decodeURIComponent('${encodeURIComponent((getEvents().find(e=>e.id===eventId)?.title)||'EVENTMILE Event')}'))">Show QR ticket</button></p>`:''}${r.registration_status==='confirmed'&&!r.checked_in_at?`<p><button class="btn-dark" onclick="checkInAttendee('${r.id}','${eventId}')">Check in attendee</button></p>`:''}${r.answers&&Object.keys(r.answers).length?'<p>Answers: '+esc(JSON.stringify(r.answers))+'</p>':''}</div>`).join('');
+ }catch(err){console.error(err);box.innerHTML='<p>Could not load attendees: '+esc(err.message)+'</p>';}
+}
+
+function showQRCodeTicket(ticketCode, attendeeName, eventTitle){
+ if(!ticketCode){alert('This registration has no ticket code yet.');return;}
+ const overlay=document.createElement('div');
+ overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:16px;';
+ overlay.innerHTML=`<div style="background:#111;padding:24px;border:1px solid #333;border-radius:18px;max-width:420px;width:100%;text-align:center;color:#fff"><h2 style="color:#c8ff4d">EVENTMILE TICKET</h2><p>${esc(eventTitle)}</p><strong>${esc(attendeeName)}</strong><div id="eventmile-ticket-qr" style="display:flex;justify-content:center;background:#fff;padding:14px;margin:18px auto;width:max-content;border-radius:8px"></div><p style="font-size:12px;word-break:break-all;color:#aaa">Ticket code: ${esc(ticketCode)}</p><p style="font-size:12px;color:#aaa">Present this QR code to the event organizer at check-in.</p><button class="btn-dark" id="eventmile-close-ticket">Close</button></div>`;
+ document.body.appendChild(overlay);
+ overlay.querySelector('#eventmile-close-ticket').onclick=()=>overlay.remove();
+ if(typeof QRCode==='undefined'){
+   overlay.querySelector('#eventmile-ticket-qr').innerHTML='<p style="color:#111">QR library unavailable. Ticket code is shown below.</p>';
+ }else{
+   new QRCode(overlay.querySelector('#eventmile-ticket-qr'),{text:ticketCode,width:220,height:220,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+ }
+}
+
+async function checkInAttendee(registrationId,eventId){
+ if(!eventmileSupabase||!eventmileUser){toast('Please log in as the event organiser.');return;}
+ if(!confirm('Mark this attendee as checked in?'))return;
+ try{
+  const {data,error}=await eventmileSupabase.rpc('check_in_registration',{p_registration_id:registrationId});
+  if(error)throw error;
+  if(data?.already_checked_in){toast('This attendee was already checked in.');}
+  else{toast('Attendee checked in successfully!');}
+  await loadEventRegistrations(eventId);
+ }catch(err){console.error(err);alert('Check-in failed: '+(err.message||'Unknown error')+'\n\nMake sure you are logged in as the event owner.');}
+}
+
+
+let eventmileQRScanner=null;
+let eventmileScannerEventId=null;
+let eventmileScanBusy=false;
+
+async function openEventQRScanner(eventId){
+ if(!eventmileSupabase||!eventmileUser){alert('Please log in as the event organizer first.');return;}
+ if(typeof Html5Qrcode==='undefined'){alert('QR scanner library did not load. Check your internet connection and reload.');return;}
+ closeEventQRScanner();
+ eventmileScannerEventId=eventId;
+ const modal=document.createElement('div');modal.id='eventmile-qr-scanner-modal';
+ modal.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;padding:14px;';
+ modal.innerHTML=`<div style="background:#111;border:1px solid #333;border-radius:16px;padding:20px;max-width:520px;width:100%;color:#fff;text-align:center"><h2 style="color:#c8ff4d">EVENTMILE QR Check-in</h2><p>Scan an attendee ticket QR code.</p><div id="eventmile-qr-reader" style="width:100%;max-width:460px;margin:auto"></div><p id="eventmile-qr-status" style="margin:14px 0;color:#ccc">Allow camera access when prompted.</p><button class="btn-dark" id="eventmile-qr-close">Close scanner</button></div>`;
+ document.body.appendChild(modal);
+ modal.querySelector('#eventmile-qr-close').onclick=closeEventQRScanner;
+ try{
+  eventmileQRScanner=new Html5Qrcode('eventmile-qr-reader');
+  await eventmileQRScanner.start({facingMode:'environment'},{fps:10,qrbox:{width:230,height:230}},async decodedText=>{
+   if(eventmileScanBusy)return;
+   eventmileScanBusy=true;
+   const status=document.getElementById('eventmile-qr-status');
+   if(status)status.textContent='QR detected. Verifying ticket…';
+   try{await processEventmileScannedTicket(decodedText,eventId);}
+   finally{eventmileScanBusy=false;}
+  },()=>{});
+ }catch(err){
+  const status=document.getElementById('eventmile-qr-status');
+  if(status)status.textContent='Camera could not start: '+(err.message||err)+' . Try HTTPS or browser camera permissions.';
+ }
+}
+
+async function processEventmileScannedTicket(ticketCode,eventId){
+ const status=document.getElementById('eventmile-qr-status');
+ if(!eventmileSupabase||!eventmileUser){if(status)status.textContent='Organizer login required.';return;}
+ ticketCode=String(ticketCode||'').trim();
+ if(!ticketCode){if(status)status.textContent='QR code is empty.';return;}
+ try{
+  const {data:registration,error}=await eventmileSupabase.from('registrations').select('id,event_id,registration_status,checked_in_at,attendee_name,ticket_code').eq('ticket_code',ticketCode).eq('event_id',eventId).maybeSingle();
+  if(error)throw error;
+  if(!registration){if(status)status.textContent='Invalid ticket or ticket belongs to another event.';return;}
+  if(registration.registration_status!=='confirmed'){if(status)status.textContent='Ticket is not confirmed.';return;}
+  const {data:check,error:checkError}=await eventmileSupabase.rpc('check_in_registration',{p_registration_id:registration.id});
+  if(checkError)throw checkError;
+  if(status)status.textContent=check?.already_checked_in?'Already checked in: '+(registration.attendee_name||'attendee'):'Successfully checked in: '+(registration.attendee_name||'attendee');
+  await loadEventRegistrations(eventId);
+  if(eventmileQRScanner){try{await eventmileQRScanner.stop();}catch(e){}}
+ }catch(err){console.error(err);if(status)status.textContent='Check-in error: '+(err.message||'Please retry.');}
+}
+
+async function closeEventQRScanner(){
+ if(eventmileQRScanner){try{if(eventmileQRScanner.isScanning)await eventmileQRScanner.stop();}catch(e){}try{await eventmileQRScanner.clear();}catch(e){}eventmileQRScanner=null;}
+ document.getElementById('eventmile-qr-scanner-modal')?.remove();
+ eventmileScannerEventId=null;
+}
+
+async function exportEventAttendees(eventId){
+ if(!eventmileSupabase||!eventmileUser){toast('Please log in as the event organiser.');return;}
+ toast('Preparing attendee CSV…');
+ try{
+  const {data,error}=await eventmileSupabase.from('registrations').select('*').eq('event_id',eventId).order('created_at',{ascending:true});
+  if(error)throw error;
+  if(!data?.length){toast('No registrations to export yet.');return;}
+  const headers=['Attendee name','Email','Phone','Ticket','Ticket quantity','Ticket price','Registration status','Registered at','Registration answers'];
+  const csvCell=value=>{const text=String(value??'');return '"'+text.replace(/"/g,'""')+'"';};
+  const rows=data.map(r=>[
+   r.attendee_name||'',r.attendee_email||'',r.attendee_phone||'',r.ticket_name||'Ticket',
+   r.ticket_quantity??1,r.ticket_price??0,r.registration_status||'',
+   r.created_at?new Date(r.created_at).toLocaleString('en-IN'):'',
+   r.answers&&Object.keys(r.answers).length?JSON.stringify(r.answers):''
+  ]);
+  const csv='\uFEFF'+[headers,...rows].map(row=>row.map(csvCell).join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const event=getEvents().find(e=>e.id===eventId);
+  const safeName=(event?.title||'event').replace(/[^a-z0-9-_]+/gi,'_').replace(/^_+|_+$/g,'');
+  a.href=url;a.download=(safeName||'event')+'_attendees.csv';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('Attendee CSV downloaded!');
+ }catch(err){console.error(err);toast('CSV export failed: '+err.message);}
+}
+
+function editEvent(id){
+ const e=getEvents().find(x=>x.id===id);
+ if(!e)return;
+
+ editingId=id;
+ $('eventTitle').value=e.title||'';
+ $('eventCategory').value=e.category||'Other';
+ $('eventAge').value=e.age||'';
+ $('eventDate').value=e.date||'';
+ $('eventTime').value=e.time||'';
+ $('eventLocation').value=e.location||'';
+ $('eventEndDate').value=e.endDate||'';
+ $('eventImage').value=e.image||'';
+ $('eventDescription').value=e.description||'';
+ $('organiserName').value=e.organiser||'';
+ $('organiserEmail').value=e.email||'';
+
+ $('ticketRows').innerHTML='';
+ (e.tickets||[]).forEach(addTicket);
+
+ $('questionRows').innerHTML='';
+ (e.questions||[]).forEach(addQuestion);
+
+ showDashTab('builder');
+}
+
+async function changeStatus(id){
+ const event=getEvents().find(x=>x.id===id);if(!event)return;
+ const next=event.status==='Published'?'draft':'published';
+ try{
+  const {data,error}=await eventmileSupabase.from('events').update({status:next}).eq('id',id).select().single();
+  if(error)throw error;
+  const mapped=rowToEvent(data);const idx=eventmileEventsCache.findIndex(x=>x.id===id);if(idx>=0)eventmileEventsCache[idx]=mapped;
+  renderSavedEvents();renderEvents();toast('Event status updated.');
+ }catch(err){toast('Status update failed: '+err.message);}
+}
+async function deleteEvent(id){
+ if(!confirm('Delete this event?'))return;
+ try{
+  const {error}=await eventmileSupabase.from('events').delete().eq('id',id);if(error)throw error;
+  eventmileEventsCache=eventmileEventsCache.filter(e=>e.id!==id);renderSavedEvents();renderEvents();toast('Event deleted from Supabase.');
+ }catch(err){toast('Delete failed: '+err.message);}
+}
+
+function resetBuilder(){
+ if(!confirm('Clear the event form?'))return;
+
+ editingId=null;
+
+ ['eventTitle','eventAge','eventDate','eventTime','eventLocation',
+ 'eventEndDate','eventImage','eventDescription','organiserName',
+ 'organiserEmail'].forEach(id=>$(id).value='');
+
+ $('eventCategory').selectedIndex=0;
+ $('ticketRows').innerHTML='';
+ $('questionRows').innerHTML='';
+ addTicket();
+ toast('Form cleared.');
+}
+
+function toast(message){
+ $('toastHolder').innerHTML=`<div class="toast">${esc(message)}</div>`;
+ setTimeout(()=>$('toastHolder').innerHTML='',3000);
+}
+
+$('year').textContent=new Date().getFullYear();
+addTicket({name:'General Admission',price:0,quantity:100});
+renderEvents();
+loadEventsFromSupabase().catch(console.error);
+
+document.addEventListener('DOMContentLoaded',()=>{
+  // Ensure the Create Event links always trigger the same host flow.
+  document.querySelectorAll('a.create-link, a[href="#"]').forEach(el=>{
+    const label=(el.textContent||'').toLowerCase();
+    if(label.includes('create event')||label.includes('create an event')){
+      el.addEventListener('click',e=>{e.preventDefault();startHostFlow();});
+    }
+  });
+  updateAccountMenu();
+});
+</script>
+
+</body>
+</html>
