@@ -437,16 +437,70 @@ async function requestTicketCancellation(registration,button){
   if(button){button.disabled=false;button.textContent=oldText||'Request cancellation';}
  }
 }
+async function refreshNotificationBadge(){
+ if(!eventmileUser||!eventmileSupabase||!$('notificationBadge'))return;
+ const {count,error}=await eventmileSupabase.from('event_notifications').select('id',{count:'exact',head:true}).eq('user_id',eventmileUser.id).eq('is_read',false);
+ if(error){console.warn('Notification count:',error.message);return;}
+ const badge=$('notificationBadge');
+ badge.textContent=count>99?'99+':String(count||0);
+ badge.style.display=count?'inline-block':'none';
+}
+async function sendEventUpdateNotifications(eventId,title,message){
+ if(!eventmileSupabase||!eventmileUser)return;
+ const {data,error}=await eventmileSupabase.rpc('notify_event_attendees',{p_event_id:eventId,p_notification_title:title,p_notification_message:message});
+ if(error){console.warn('Could not send participant notifications:',error.message);toast('Event saved, but participant notifications could not be sent. Check the notification SQL setup.');return;}
+ return data;
+}
+async function showNotifications(){
+ $('userDropdown').classList.add('hidden');
+ if(!eventmileUser){openAuthModal();return;}
+ showModal('notificationsModal');
+ await loadNotifications();
+}
+async function loadNotifications(){
+ const box=$('notificationsContent');
+ if(!eventmileUser||!eventmileSupabase){box.innerHTML='<div class="notice">Please log in to view notifications.</div>';return;}
+ box.innerHTML='<div class="notice">Loading notifications…</div>';
+ try{
+  const {data,error}=await eventmileSupabase.from('event_notifications').select('*').eq('user_id',eventmileUser.id).order('created_at',{ascending:false}).limit(100);
+  if(error)throw error;
+  if(!data?.length){box.innerHTML='<div class="notice">You’re all caught up. No notifications yet.</div>';await refreshNotificationBadge();return;}
+  box.innerHTML=data.map(n=>`<div class="card-row" style="border-left:3px solid ${n.is_read?'#4a5047':'var(--lime)'}">
+   <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+    <strong>${esc(n.title||'EVENTMILE update')}</strong>
+    ${n.is_read?'<small style="color:var(--muted)">Read</small>':'<small style="color:var(--lime)">New</small>'}
+   </div>
+   <p style="margin:8px 0;color:#d5d9d0">${esc(n.message||'')}</p>
+   <small style="color:var(--muted)">${n.created_at?new Date(n.created_at).toLocaleString('en-IN'):'Just now'}</small>
+   ${!n.is_read?`<div><button class="text-btn" style="margin-top:8px" onclick="markNotificationRead('${n.id}')">Mark as read</button></div>`:''}
+  </div>`).join('');
+  await refreshNotificationBadge();
+ }catch(err){console.error(err);box.innerHTML='<div class="notice">Could not load notifications: '+esc(err.message)+'</div>';}
+}
+async function markNotificationRead(id){
+ try{
+  const {error}=await eventmileSupabase.from('event_notifications').update({is_read:true}).eq('id',id).eq('user_id',eventmileUser.id);
+  if(error)throw error;
+  await loadNotifications();
+ }catch(err){toast('Could not update notification: '+err.message);}
+}
+async function markAllNotificationsRead(){
+ try{
+  const {error}=await eventmileSupabase.from('event_notifications').update({is_read:true}).eq('user_id',eventmileUser.id).eq('is_read',false);
+  if(error)throw error;
+  await loadNotifications();toast('All notifications marked as read.');
+ }catch(err){toast('Could not update notifications: '+err.message);}
+}
 function showInbox(){alert('Inbox will be available after messaging is connected.');$('userDropdown').classList.add('hidden');}
 function showInterested(){alert('Interested events & plans will be available after attendee profiles are connected.');$('userDropdown').classList.add('hidden');}
 function showAccountSettings(){alert('Account settings: '+(eventmileUser?.email||''));$('userDropdown').classList.add('hidden');}
 async function signOutUser(){
  if(eventmileSupabase)await eventmileSupabase.auth.signOut();
- eventmileUser=null;eventmileSelectedHost=null;updateAccountMenu();$('userDropdown').classList.add('hidden');
+ eventmileUser=null;eventmileSelectedHost=null;updateAccountMenu();if($('notificationBadge'))$('notificationBadge').style.display='none';$('userDropdown').classList.add('hidden');
 }
 if(eventmileSupabase){
- eventmileSupabase.auth.getSession().then(({data})=>{eventmileUser=data.session?.user||null;updateAccountMenu();loadHostProfilesFromSupabase().catch(console.error);loadEventsFromSupabase().catch(console.error);});
- eventmileSupabase.auth.onAuthStateChange((_event,session)=>{eventmileUser=session?.user||null;updateAccountMenu();if(eventmileUser){loadHostProfilesFromSupabase().catch(console.error);loadEventsFromSupabase().catch(console.error);}else{eventmileHostProfilesCache=[];}});
+ eventmileSupabase.auth.getSession().then(({data})=>{eventmileUser=data.session?.user||null;updateAccountMenu();loadHostProfilesFromSupabase().catch(console.error);loadEventsFromSupabase().catch(console.error);if(eventmileUser)refreshNotificationBadge().catch(console.error);});
+ eventmileSupabase.auth.onAuthStateChange((_event,session)=>{eventmileUser=session?.user||null;updateAccountMenu();if(eventmileUser){loadHostProfilesFromSupabase().catch(console.error);loadEventsFromSupabase().catch(console.error);refreshNotificationBadge().catch(console.error);}else{eventmileHostProfilesCache=[];if($('notificationBadge'))$('notificationBadge').style.display='none';}});
 }
 </script>
 <style>
@@ -473,6 +527,7 @@ if(eventmileSupabase){
     <div class="menu-label">MAIN PROFILE</div>
     <div id="menuUserName" style="padding:8px 10px;font-weight:700">User</div>
     <button onclick="showMyTickets()">🎟 My tickets</button>
+    <button onclick="showNotifications()">🔔 Notifications <span id="notificationBadge" style="display:none;margin-left:6px;background:#c8ff4d;color:#101110;border-radius:20px;padding:2px 7px;font-size:11px;font-weight:800"></span></button>
     <button onclick="showInbox()">✉ Inbox</button>
     <button onclick="showInterested()">♡ Interested events & plans</button>
     <button onclick="showSavedOrganizers()">★ Saved organizers</button>
@@ -634,6 +689,21 @@ if(eventmileSupabase){
  </div>
 </div>
 
+<!-- PARTICIPANT NOTIFICATIONS -->
+<div id="notificationsModal" class="modal-overlay hidden">
+ <div class="modal-card" style="max-width:720px;max-height:90vh;overflow:auto">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+   <div><div class="eyebrow">EVENTMILE UPDATES</div><h2>🔔 Notifications</h2></div>
+   <button class="close" onclick="hideModal('notificationsModal')">✕</button>
+  </div>
+  <div class="actions" style="margin:10px 0 18px">
+   <button class="btn-dark" onclick="markAllNotificationsRead()">Mark all as read</button>
+   <button class="btn-dark" onclick="loadNotifications()">↻ Refresh</button>
+  </div>
+  <div id="notificationsContent"><div class="notice">Loading notifications…</div></div>
+ </div>
+</div>
+
 <!-- SAVED ORGANIZERS -->
 <div id="savedOrganizersModal" class="modal-overlay hidden">
  <div class="modal-card" style="max-width:680px;max-height:90vh;overflow:auto">
@@ -668,7 +738,7 @@ if(eventmileSupabase){
 </div>
 
 <div class="dash-content">
-<div class="notice">Prototype: drafts and demo events are stored in this browser. Real public publishing, accounts, registration and payments need backend integration.</div>
+<div class="notice">Event updates and cancellations can notify registered participants after the EVENTMILE notifications SQL setup is completed.</div>
 
 <div class="dash-tabs">
 <button class="tab-btn active" id="tabBuilder" onclick="showDashTab('builder')">Event Builder</button>
@@ -887,7 +957,7 @@ const $=id=>document.getElementById(id);
 
 function getEvents(){return eventmileEventsCache;}
 function setEvents(events){eventmileEventsCache=events;}
-function rowToEvent(row){return {id:row.id,title:row.title,category:row.category,description:row.description||'',date:row.event_date||'',time:row.event_time||'',location:row.venue||'',age:row.age_requirement||'All ages',endDate:row.end_date||'',image:row.image_url||'',organiser:eventmileHostProfilesCache.find(p=>p.id===row.host_profile_id)?.name||'',email:row.organiser_email||'',tickets:row.tickets||[{name:'General Admission',price:Number(row.price)||0,quantity:Number(row.capacity)||0}],questions:row.questions||[],status:String(row.status||'draft').toLowerCase()==='published'?'Published':'Draft',ownerId:row.owner_id,hostProfileId:row.host_profile_id};}
+function rowToEvent(row){return {id:row.id,title:row.title,category:row.category,description:row.description||'',date:row.event_date||'',time:row.event_time||'',location:row.venue||'',age:row.age_requirement||'All ages',endDate:row.end_date||'',image:row.image_url||'',organiser:eventmileHostProfilesCache.find(p=>p.id===row.host_profile_id)?.name||'',email:row.organiser_email||'',tickets:row.tickets||[{name:'General Admission',price:Number(row.price)||0,quantity:Number(row.capacity)||0}],questions:row.questions||[],status:(String(row.status||'draft').toLowerCase()==='published'?'Published':(String(row.status||'').toLowerCase()==='cancelled'?'Cancelled':'Draft')),ownerId:row.owner_id,hostProfileId:row.host_profile_id};}
 async function loadEventsFromSupabase(){
  if(!eventmileSupabase)return [];
  const {data,error}=await eventmileSupabase.from('events').select('*').order('created_at',{ascending:false});
@@ -1356,15 +1426,69 @@ function showDashTab(tab){
 
 let organizerAnalyticsCache=null;
 async function loadOrganizerAnalyticsEvents(){
- const select=$('analyticsEventSelect'); if(!select)return;
- if(!eventmileSupabase||!eventmileUser){select.innerHTML='<option value="">Sign in as organizer first</option>';return;}
- select.innerHTML='<option value="">Loading your events…</option>';
- try{
-  const {data,error}=await eventmileSupabase.from('events').select('id,title,event_date,status,price,tickets').eq('owner_id',eventmileUser.id).order('created_at',{ascending:false});
-  if(error)throw error;
-  if(!data||!data.length){select.innerHTML='<option value="">No events found</option>';return;}
-  select.innerHTML='<option value="">Select an event…</option>'+data.map(e=>`<option value="${esc(e.id)}">${esc(e.title||'Untitled event')} — ${esc(e.status||'')}</option>`).join('');
- }catch(err){select.innerHTML='<option value="">Could not load events</option>';console.error('Analytics events:',err);}
+  const select=$('analyticsEventSelect'),overview=$('analyticsOverview');
+  if(!select)return;
+  if(!eventmileSupabase||!eventmileUser){
+    select.innerHTML='<option value="">Sign in as organizer first</option>';
+    if(overview)overview.innerHTML='<div class="notice">Please sign in as the organizer to view analytics.</div>';
+    return;
+  }
+  select.innerHTML='<option value="">Loading your events…</option>';
+  if(overview)overview.innerHTML='<div class="notice">Loading your organizer overview…</div>';
+  try{
+    const {data:events,error:eventError}=await eventmileSupabase.from('events')
+      .select('id,title,event_date,status,price,tickets,capacity')
+      .eq('owner_id',eventmileUser.id).order('created_at',{ascending:false});
+    if(eventError)throw eventError;
+    const list=events||[];
+    if(!list.length){
+      select.innerHTML='<option value="">No events found</option>';
+      if(overview)overview.innerHTML='<div class="notice">You have not created any events yet. Create your first event to see analytics here.</div>';
+      return;
+    }
+    select.innerHTML='<option value="">Select an event…</option>'+list.map(e=>
+      `<option value="${esc(e.id)}">${esc(e.title||'Untitled event')} — ${esc(e.status||'')}</option>`
+    ).join('');
+
+    const ids=list.map(e=>e.id);
+    const {data:registrations,error:registrationError}=await eventmileSupabase.from('registrations')
+      .select('event_id,ticket_quantity,ticket_price,registration_status,checked_in_at')
+      .in('event_id',ids);
+    if(registrationError)throw registrationError;
+    const regs=registrations||[];
+    const status=e=>String(e.status||'draft').toLowerCase();
+    const confirmed=regs.filter(r=>String(r.registration_status||'confirmed').toLowerCase()==='confirmed');
+    const cancelled=regs.filter(r=>String(r.registration_status||'').toLowerCase()==='cancelled');
+    const qty=r=>Math.max(1,Number(r.ticket_quantity)||1);
+    const ticketsSold=confirmed.reduce((n,r)=>n+qty(r),0);
+    const checked=confirmed.filter(r=>!!r.checked_in_at).length;
+    const estimatedRevenue=confirmed.reduce((sum,r)=>sum+(Number(r.ticket_price)||0)*qty(r),0);
+    const published=list.filter(e=>status(e)==='published').length;
+    const drafts=list.filter(e=>status(e)==='draft').length;
+    const cancelledEvents=list.filter(e=>status(e)==='cancelled').length;
+    if(overview){
+      const card=(label,value,sub='')=>`<div class="card-row" style="margin:0"><small style="color:var(--muted)">${label}</small><h2 style="margin:5px 0">${value}</h2>${sub?`<small style="color:var(--muted)">${sub}</small>`:''}</div>`;
+      overview.innerHTML=`<div class="actions" style="justify-content:space-between;align-items:center;margin-top:0"><h3 style="margin:0">All events overview</h3><button class="btn-dark" onclick="loadOrganizerAnalyticsEvents()">↻ Refresh overview</button></div>
+       <div class="builder-grid" style="grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;margin-top:14px">
+        ${card('Total events',list.length)}
+        ${card('Published',published)}
+        ${card('Drafts',drafts)}
+        ${card('Cancelled events',cancelledEvents)}
+        ${card('Registrations',regs.length)}
+        ${card('Confirmed registrations',confirmed.length)}
+        ${card('Tickets sold',ticketsSold)}
+        ${card('Checked in',checked,confirmed.length?Math.round(checked/confirmed.length*100)+'% of confirmed registrations':'No confirmed registrations')}
+        ${card('Cancelled registrations',cancelled.length)}
+        ${card('Estimated ticket value','₹'+estimatedRevenue.toLocaleString('en-IN'),'Not verified payment revenue')}
+       </div>
+       <small style="display:block;color:var(--muted);margin-top:12px">Overview is calculated from your events and registration records. Ticket value is an estimate, not proof of collected payments.</small>`;
+    }
+    window.organizerAnalyticsEventsCache=list;
+  }catch(err){
+    console.error('Analytics events:',err);
+    select.innerHTML='<option value="">Could not load events</option>';
+    if(overview)overview.innerHTML='<div class="notice" style="border-color:#ff6b6b">Could not load organizer overview: '+esc(err.message||'Check database access and registration table fields')+'</div>';
+  }
 }
 async function loadOrganizerAnalytics(){
  const eventId=$('analyticsEventSelect')?.value,box=$('organizerAnalyticsResult');
@@ -1671,6 +1795,7 @@ async function saveEvent(status){
  if(!validateEvent(e))return;
  if(!eventmileUser||!eventmileSupabase){toast('Please log in before saving an event.');return;}
  if(!eventmileSelectedHost){toast('Please select a host profile first.');return;}
+ const previousEvent=editingId?eventmileEventsCache.find(x=>String(x.id)===String(editingId)):null;
  const payload={owner_id:eventmileUser.id,host_profile_id:eventmileSelectedHost.id,title:e.title,category:e.category,description:e.description,event_date:e.date||null,event_time:e.time||null,venue:e.location,city:(e.location.match(/Pune/i)?'Pune':'Pune'),price:e.tickets.length?Math.min(...e.tickets.map(t=>Number(t.price)||0)):0,capacity:e.tickets.reduce((sum,t)=>sum+(Number(t.quantity)||0),0),image_url:e.image||null,status:status.toLowerCase(),age_requirement:e.age||'All ages',end_date:e.endDate||null,organiser_email:e.email||eventmileUser.email||null,tickets:e.tickets,questions:e.questions};
  const saveBtn=document.querySelector('[onclick*="saveEvent"]');if(saveBtn)saveBtn.disabled=true;
  try{
@@ -1682,6 +1807,14 @@ async function saveEvent(status){
   const idx=eventmileEventsCache.findIndex(x=>x.id===mapped.id);
   if(idx>=0)eventmileEventsCache[idx]=mapped;else eventmileEventsCache.unshift(mapped);
   editingId=mapped.id;
+  if(previousEvent && previousEvent.status!=='Cancelled'){
+   const changes=[];
+   if((previousEvent.title||'')!==(mapped.title||''))changes.push('Event name: '+mapped.title);
+   if((previousEvent.date||'')!==(mapped.date||''))changes.push('New date: '+(mapped.date||'To be announced'));
+   if((previousEvent.time||'')!==(mapped.time||''))changes.push('New time: '+(mapped.time||'To be announced'));
+   if((previousEvent.location||'')!==(mapped.location||''))changes.push('New venue: '+(mapped.location||'To be announced'));
+   if(changes.length)await sendEventUpdateNotifications(mapped.id,'Event details updated',changes.join(' · '));
+  }
   toast(status==='Published'?'Event published to EVENTMILE!':'Draft saved to Supabase!');
   renderEvents();renderSavedEvents();showDashTab('manage');
  }catch(err){toast('Supabase save failed: '+err.message);console.error(err);}
@@ -1711,7 +1844,8 @@ function renderSavedEvents(){
  <h4>${esc(e.title)} <span class="tag">${esc(e.status)}</span></h4>
  <p>${esc(e.category)} · ${niceDate(e.date)} · ${esc(e.location)}</p>
  <button class="btn-dark" onclick="editEvent('${e.id}')">Edit</button>
- <button class="btn-dark" onclick="changeStatus('${e.id}')">${e.status==='Published'?'Unpublish':'Publish'}</button>
+ ${e.status!=='Cancelled'?`<button class="btn-dark" onclick="changeStatus('${e.id}')">${e.status==='Published'?'Unpublish':'Publish'}</button>`:''}
+ ${e.status==='Published'?`<button class="remove-btn" onclick="cancelEvent('${e.id}')">Cancel event</button>`:''}
  <button class="btn-dark" onclick="loadEventRegistrations('${e.id}')">View attendees</button>
  <button class="btn-dark" onclick="openCheckinForEvent('${e.id}')">QR Check-in</button>
  <button class="btn-dark" onclick="exportEventAttendees('${e.id}')">Download attendees CSV</button>
@@ -1761,34 +1895,71 @@ async function exportEventAttendees(eventId){
  }catch(err){console.error(err);toast('CSV export failed: '+err.message);}
 }
 
-function editEvent(id){
- const e=getEvents().find(x=>x.id===id);
- if(!e)return;
+async function editEvent(id){
+ // Load the selected event from Supabase instead of relying only on the
+ // in-memory list. This also works when the list/cache has not finished loading.
+ if(!eventmileSupabase||!eventmileUser){toast('Please log in again to edit this event.');return;}
+ const editButtons=[...document.querySelectorAll('button[onclick*="editEvent"]')];
+ editButtons.forEach(b=>b.disabled=true);
+ try{
+  let eventRow=null;
+  const {data,error}=await eventmileSupabase.from('events').select('*').eq('id',id).eq('owner_id',eventmileUser.id).maybeSingle();
+  if(error)throw error;
+  eventRow=data;
+  if(!eventRow){
+   const cached=getEvents().find(x=>String(x.id)===String(id));
+   if(!cached){toast('Event not found or you do not have permission to edit it.');return;}
+   eventRow={id:cached.id,title:cached.title,category:cached.category,description:cached.description,event_date:cached.date,event_time:cached.time,venue:cached.location,age_requirement:cached.age,end_date:cached.endDate,image_url:cached.image,organiser_email:cached.email,tickets:cached.tickets,questions:cached.questions,host_profile_id:cached.hostProfileId};
+  }
 
- editingId=id;
- $('eventTitle').value=e.title||'';
- $('eventCategory').value=e.category||'Other';
- $('eventAge').value=e.age||'';
- $('eventDate').value=e.date||'';
- $('eventTime').value=e.time||'';
- $('eventLocation').value=e.location||'';
- $('eventEndDate').value=e.endDate||'';
- $('eventImage').value=e.image||'';
- $('eventDescription').value=e.description||'';
- $('organiserName').value=e.organiser||'';
- $('organiserEmail').value=e.email||'';
+  await loadHostProfilesFromSupabase();
+  let linkedProfile=eventmileHostProfilesCache.find(p=>String(p.id)===String(eventRow.host_profile_id));
+  if(!linkedProfile&&eventRow.host_profile_id){
+   const {data:profileRow,error:profileError}=await eventmileSupabase.from('host_profiles').select('*').eq('id',eventRow.host_profile_id).eq('owner_id',eventmileUser.id).maybeSingle();
+   if(profileError)throw profileError;
+   if(profileRow){
+    linkedProfile={id:profileRow.id,user_id:profileRow.owner_id,type:profileRow.type,name:profileRow.name,logo:profileRow.logo_url||'',description:profileRow.description||'',location:profileRow.location||'',email:profileRow.contact_email||'',social:profileRow.social_url||'',created_at:profileRow.created_at};
+    eventmileHostProfilesCache.unshift(linkedProfile);
+   }
+  }
+  // Older events may not have a host_profile_id. If the organiser has exactly
+  // one profile, safely use it as the event's editing profile.
+  if(!linkedProfile&&eventmileHostProfilesCache.length===1)linkedProfile=eventmileHostProfilesCache[0];
+  if(!linkedProfile){toast('Could not find the host profile for this event. Open Host Studio and check your profiles.');return;}
+  eventmileSelectedHost=linkedProfile;
 
- $('ticketRows').innerHTML='';
- (e.tickets||[]).forEach(addTicket);
+  const e=rowToEvent(eventRow);
+  editingId=String(id);
+  $('eventTitle').value=e.title||'';
+  $('eventCategory').value=e.category||'Other';
+  $('eventAge').value=e.age||'';
+  $('eventDate').value=e.date||'';
+  $('eventTime').value=e.time||'';
+  $('eventLocation').value=e.location||'';
+  $('eventEndDate').value=e.endDate||'';
+  $('eventImage').value=e.image||'';
+  $('eventDescription').value=e.description||'';
+  $('organiserName').value=linkedProfile.name||e.organiser||'';
+  $('organiserEmail').value=e.email||linkedProfile.email||eventmileUser.email||'';
 
- $('questionRows').innerHTML='';
- (e.questions||[]).forEach(addQuestion);
+  $('ticketRows').innerHTML='';
+  (e.tickets&&e.tickets.length?e.tickets:[{name:'General Admission',price:Number(eventRow.price)||0,quantity:Number(eventRow.capacity)||0}]).forEach(addTicket);
+  $('questionRows').innerHTML='';
+  (e.questions||[]).forEach(addQuestion);
 
- showDashTab('builder');
+  openOrganiserDashboard();
+  showDashTab('builder');
+  const heading=document.querySelector('#organiser-dashboard .dash-top h2');
+  if(heading)heading.textContent='Edit event';
+  toast('Event loaded. You can now edit and save it.');
+ }catch(err){
+  console.error('EVENTMILE edit event failed:',err);
+  toast('Edit failed: '+(err.message||'Unable to load event.'));
+ }finally{editButtons.forEach(b=>b.disabled=false);}
 }
 
 async function changeStatus(id){
- const event=getEvents().find(x=>x.id===id);if(!event)return;
+ const event=getEvents().find(x=>x.id===id);if(!event||event.status==='Cancelled')return;
  const next=event.status==='Published'?'draft':'published';
  try{
   const {data,error}=await eventmileSupabase.from('events').update({status:next}).eq('id',id).select().single();
@@ -1796,6 +1967,18 @@ async function changeStatus(id){
   const mapped=rowToEvent(data);const idx=eventmileEventsCache.findIndex(x=>x.id===id);if(idx>=0)eventmileEventsCache[idx]=mapped;
   renderSavedEvents();renderEvents();toast('Event status updated.');
  }catch(err){toast('Status update failed: '+err.message);}
+}
+async function cancelEvent(id){
+ const event=getEvents().find(x=>String(x.id)===String(id));
+ if(!event||!eventmileUser||!eventmileSupabase)return;
+ if(!confirm('Cancel “'+event.title+'”? All confirmed participants will receive an EVENTMILE notification. This does not automatically refund payments.'))return;
+ try{
+  const {data,error}=await eventmileSupabase.from('events').update({status:'cancelled'}).eq('id',id).eq('owner_id',eventmileUser.id).select().single();
+  if(error)throw error;
+  const mapped=rowToEvent(data);const idx=eventmileEventsCache.findIndex(x=>String(x.id)===String(id));if(idx>=0)eventmileEventsCache[idx]=mapped;
+  await sendEventUpdateNotifications(id,'Event cancelled','The organiser has cancelled this event. Please contact the organiser about any refund questions.');
+  renderSavedEvents();renderEvents();toast('Event cancelled and participants notified.');
+ }catch(err){console.error(err);toast('Could not cancel event: '+err.message);}
 }
 async function deleteEvent(id){
  if(!confirm('Delete this event?'))return;
