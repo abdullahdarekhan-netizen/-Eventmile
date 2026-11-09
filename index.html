@@ -137,6 +137,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--lime)}
 .register-button{width:100%;background:var(--lime);color:#101110;padding:15px;border:none;border-radius:9px;font-weight:900;margin-top:20px}
 .registration-question{margin:15px 0}
 .registration-question label{display:block;margin-bottom:7px}
+.ticket-overlay{position:fixed;inset:0;z-index:260;background:rgba(0,0,0,.88);overflow-y:auto;padding:18px;display:flex;align-items:flex-start;justify-content:center}
+.ticket-shell{width:min(520px,100%);margin:20px auto;background:#171917;border:1px solid var(--border);border-radius:16px;padding:22px}
+.ticket-shell h2{margin:4px 0 12px}.ticket-brand{color:var(--lime);font-weight:900;letter-spacing:2px}
+.ticket-qr{display:flex;justify-content:center;background:#fff;padding:14px;border-radius:12px;margin:18px auto;width:max-content;max-width:100%;min-height:150px;min-width:150px}
+.ticket-meta{background:#202320;border:1px solid var(--border);border-radius:10px;padding:13px;margin:10px 0}
+.ticket-meta small{display:block;color:var(--muted)}.ticket-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}
+.ticket-actions button{flex:1;min-width:130px}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--lime);color:#111;padding:12px 18px;border-radius:9px;font-weight:bold;z-index:250}
 
 @media(max-width:850px){
@@ -173,8 +180,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--lime)}
 .choice-card:hover{border-color:var(--lime)}
 @media(max-width:600px){.choice-grid{grid-template-columns:1fr}.modal-card{padding:17px}}
 
+@media print{body>*:not(#ticketModal){display:none!important}#ticketModal{position:static!important;display:block!important;background:#fff!important;color:#111!important;padding:0!important}.ticket-shell{border:0!important;color:#111!important;background:#fff!important}.ticket-meta{background:#fff!important;color:#111!important;border:1px solid #ddd!important}.ticket-actions,.ticket-shell>div:first-child button{display:none!important}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 /* AUTH + ORGANIZATION / COMMUNITY PROFILES */
 const EVENTMILE_SUPABASE_URL = "https://zlntjlnhheoawajzhsti.supabase.co";
@@ -319,7 +328,66 @@ function continueToEventBuilder(){
 }
 function showHostProfiles(){ $('userDropdown').classList.add('hidden');showHostProfileChooser(); }
 function openManageHostEvents(){ $('userDropdown').classList.add('hidden');hideModal('hostProfileDashboard');openOrganiserDashboard();showDashTab('manage');}
-function showMyTickets(){alert('My Tickets will be connected to EVENTMILE bookings when ticketing backend is added.');$('userDropdown').classList.add('hidden');}
+async function showMyTickets(){
+ $('userDropdown').classList.add('hidden');
+ if(!eventmileUser){alert('Please log in to view your tickets.');return;}
+ if(!eventmileSupabase){alert('EVENTMILE connection unavailable.');return;}
+ try{
+  const {data,error}=await eventmileSupabase.from('registrations').select('*').eq('user_id',eventmileUser.id).order('created_at',{ascending:false});
+  if(error)throw error;
+  if(!data?.length){alert('You have no registered tickets yet.');return;}
+  const evs=allEvents();
+  if(data.length===1){
+   const r=data[0];
+   showTicket(r,evs.find(e=>String(e.id)===String(r.event_id))||{title:'EVENTMILE event'},false);
+   return;
+  }
+  showTicketChooser(data,evs);
+ }catch(err){console.error(err);alert('Could not load tickets: '+(err.message||'Please try again.'));}
+}
+function showTicketChooser(registrations,events){
+ let chooser=document.getElementById('myTicketsChooser');
+ if(!chooser){
+  chooser=document.createElement('div');chooser.id='myTicketsChooser';
+  chooser.style.cssText='position:fixed;inset:0;z-index:99999;background:#101110;display:block;overflow-y:auto;padding:0;color:#f5f5f5;';
+  chooser.innerHTML=`<div style="max-width:1100px;margin:auto;padding:28px 20px 50px;box-sizing:border-box"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid #2c3029;padding-bottom:18px"><div><div style="color:#c8ff4d;font-size:12px;font-weight:800;letter-spacing:2px">EVENTMILE ACCOUNT</div><h1 style="margin:6px 0 0;font-size:clamp(28px,5vw,42px)">🎟️ My Tickets</h1></div><button id="closeMyTicketsChooser" class="close" aria-label="Back to EVENTMILE" style="font-size:24px">✕</button></div><p style="color:#a8ada4;margin:20px 0 24px">Your event registrations in one place. Select a ticket to open its QR code.</p><div id="myTicketChoices" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px"></div><div style="margin-top:28px;color:#737970;font-size:13px">© 2026 EVENTMILE</div></div>`;
+  document.body.appendChild(chooser);
+  chooser.querySelector('#closeMyTicketsChooser').onclick=()=>chooser.remove();
+ }
+ const list=chooser.querySelector('#myTicketChoices');
+ list.innerHTML=registrations.map((r,i)=>{
+  const ev=events.find(e=>String(e.id)===String(r.event_id))||{title:'EVENTMILE event'};
+  const date=r.created_at?new Date(r.created_at).toLocaleDateString('en-IN'):'Registration';
+  return `<div style="padding:22px;border-radius:16px;border:1px solid #42483b;background:linear-gradient(145deg,#20241e,#171917);color:#fff;min-height:190px;box-sizing:border-box"><strong style="display:block;font-size:16px">${esc(ev.title||'EVENTMILE event')}</strong><span style="display:block;color:#c8ff4d;margin-top:5px">${esc(r.ticket_name||'General Admission')}</span><small style="display:block;color:#a8ada4;margin-top:5px">${esc(date)} · Ticket ${i+1}</small><small style="display:block;margin-top:6px;color:${String(r.registration_status||'confirmed').toLowerCase()==='confirmed'?'#c8ff4d':'#f3c66b'}">Status: ${esc(r.registration_status||'confirmed')}</small>${String(r.registration_status||'confirmed').toLowerCase()==='confirmed'?`<button type="button" data-ticket-index="${i}" style="display:block;margin-top:14px;padding:9px 13px;border:0;border-radius:8px;background:#c8ff4d;color:#101110;font-weight:800;cursor:pointer">Open QR ticket →</button><button type="button" data-cancel-index="${i}" style="display:block;margin-top:10px;padding:8px 12px;border:1px solid #72776c;border-radius:8px;background:transparent;color:#e4e6e1;cursor:pointer">Request cancellation</button>`:''}<small style="display:block;margin-top:12px;color:#a8ada4">${String(r.registration_status||'confirmed').toLowerCase()==='cancelled'?'This ticket has been cancelled. QR ticket access is disabled.':''}</small></div>`;
+ }).join('');
+ list.querySelectorAll('[data-ticket-index]').forEach(btn=>btn.addEventListener('click',()=>{
+  const r=registrations[Number(btn.dataset.ticketIndex)];
+  const ev=events.find(e=>String(e.id)===String(r.event_id))||{title:'EVENTMILE event'};
+  chooser.remove();showTicket(r,ev,false);
+ }));
+ list.querySelectorAll('[data-cancel-index]').forEach(btn=>btn.addEventListener('click',()=>{
+  const r=registrations[Number(btn.dataset.cancelIndex)];
+  requestTicketCancellation(r,btn);
+ }));
+}
+async function requestTicketCancellation(registration,button){
+ if(!eventmileUser||!eventmileSupabase){alert('Please sign in to request ticket cancellation.');return;}
+ const reason=prompt('Why are you requesting cancellation? (Optional)');
+ if(reason===null)return;
+ if(!confirm('Submit a cancellation request? This does not automatically cancel your ticket or issue a refund.'))return;
+ const oldText=button?.textContent;
+ if(button){button.disabled=true;button.textContent='Submitting…';}
+ try{
+  const {data,error}=await eventmileSupabase.rpc('request_ticket_cancellation',{p_registration_id:registration.id,p_reason:reason.trim()||null});
+  if(error)throw error;
+  alert('Cancellation request submitted. The event organiser will review it. Your ticket remains active until the organiser approves cancellation.');
+  if(button){button.textContent='Request submitted';button.disabled=true;}
+ }catch(err){
+  console.error('Cancellation request:',err);
+  alert('Could not submit the request. Please ensure the EVENTMILE cancellation-request SQL setup is complete. '+(err.message||''));
+  if(button){button.disabled=false;button.textContent=oldText||'Request cancellation';}
+ }
+}
 function showInbox(){alert('Inbox will be available after messaging is connected.');$('userDropdown').classList.add('hidden');}
 function showInterested(){alert('Interested events & plans will be available after attendee profiles are connected.');$('userDropdown').classList.add('hidden');}
 function showAccountSettings(){alert('Account settings: '+(eventmileUser?.email||''));$('userDropdown').classList.add('hidden');}
@@ -332,7 +400,9 @@ if(eventmileSupabase){
  eventmileSupabase.auth.onAuthStateChange((_event,session)=>{eventmileUser=session?.user||null;updateAccountMenu();if(eventmileUser){loadHostProfilesFromSupabase().catch(console.error);loadEventsFromSupabase().catch(console.error);}else{eventmileHostProfilesCache=[];}});
 }
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+.ticket-availability{margin:10px 0 12px;font-size:13px;font-weight:600;color:#c8ff4d;min-height:18px}
+</style>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 
@@ -528,6 +598,8 @@ if(eventmileSupabase){
 <button class="tab-btn active" id="tabBuilder" onclick="showDashTab('builder')">Event Builder</button>
 <button class="tab-btn" id="tabPreview" onclick="showDashTab('preview')">Attendee Preview</button>
 <button class="tab-btn" id="tabManage" onclick="showDashTab('manage')">My Events</button>
+<button class="tab-btn" id="tabCancellations" onclick="showDashTab('cancellations');loadCancellationRequests()">Cancellation Requests</button>
+<button class="tab-btn" id="tabCheckin" onclick="showDashTab('checkin');loadCheckinEvents()">QR Check-in</button>
 </div>
 
 <div id="builderTab">
@@ -603,6 +675,24 @@ if(eventmileSupabase){
 <div id="savedEventsList"></div>
 <div class="actions"><button class="btn-dark" onclick="resetBuilder();showDashTab('builder')">＋ Create another event</button></div>
 </div>
+<div id="cancellationsTab" class="hidden">
+<h3>Ticket cancellation requests</h3>
+<p style="color:var(--muted);font-size:13px">Review requests from participants registered for events you own. Approving marks the ticket cancelled; refunds are not processed automatically.</p>
+<div id="cancellationRequestsList"><div class="notice">Open this tab to load requests.</div></div>
+</div>
+<div id="checkinTab" class="hidden">
+<h3>QR ticket check-in</h3>
+<p style="color:var(--muted);font-size:13px">Scan attendee QR tickets at your event. Only confirmed, unused tickets for the selected event can be checked in. Cancelled or already-used tickets will be rejected.</p>
+<div class="form-panel" style="margin:12px 0">
+ <div class="field"><label>Select your event</label><select id="checkinEventSelect"><option value="">Loading your events…</option></select></div>
+ <div class="actions"><button class="btn-primary" onclick="startEventmileScanner()">Start camera scanner</button><button class="btn-dark" onclick="stopEventmileScanner()">Stop scanner</button></div>
+ <div id="eventmileQrReader" style="width:100%;max-width:520px;margin:18px auto"></div>
+ <div id="checkinResult" class="notice" style="margin-top:12px">Choose an event and start scanning.</div>
+ <div class="field" style="margin-top:18px"><label>Or enter ticket QR code manually</label><input id="manualTicketCode" placeholder="Paste ticket code / UUID"></div>
+ <button class="btn-primary" onclick="checkinManualTicket()">Verify & check in ticket</button>
+</div>
+<div class="notice"><strong>Setup required:</strong> Run the EVENTMILE organizer check-in SQL function in Supabase before scanning. Camera access requires HTTPS and browser permission.</div>
+</div>
 </div>
 </div>
 </div>
@@ -618,6 +708,19 @@ if(eventmileSupabase){
 </div>
 </div>
 
+<div id="ticketModal" class="ticket-overlay hidden">
+ <div class="ticket-shell">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div class="ticket-brand">EVENTMILE</div><button class="close" onclick="closeTicketModal()">✕</button></div>
+  <h2 id="ticketModalTitle">Your ticket</h2><p style="color:var(--muted);margin-top:0">Registration confirmed · Keep this QR ready for event check-in.</p>
+  <div id="ticketQr" class="ticket-qr"></div>
+  <div class="ticket-meta"><small>EVENT</small><strong id="ticketEventName">—</strong></div>
+  <div class="ticket-meta"><small>ATTENDEE</small><strong id="ticketAttendee">—</strong></div>
+  <div class="ticket-meta"><small>TICKET</small><strong id="ticketType">—</strong></div>
+  <div class="ticket-meta"><small>REGISTRATION ID</small><strong id="ticketRegistrationId" style="overflow-wrap:anywhere">—</strong></div>
+  <p style="font-size:12px;color:var(--muted)">This QR currently contains your ticket identifier. Organizer check-in must validate the same identifier in EVENTMILE.</p>
+  <div class="ticket-actions"><button class="btn-primary" onclick="printTicket()">Print / Save ticket</button><button class="btn-dark" onclick="closeTicketModal()">Done</button></div>
+ </div>
+</div>
 <div id="toastHolder"></div>
 
 <script>
@@ -736,7 +839,7 @@ function renderEvents(){
     <span>📍 ${esc(e.location)}</span>
     <span>👥 ${esc(e.age||'All ages')}</span>
    </div>
-   <div class="ticket-availability" id="slots-${e.id}">Checking availability…</div>
+   <div class="ticket-availability" id="slots-${esc(e.id)}">Checking ticket availability…</div>
    <div class="event-bottom">
     <span class="price">${e.tickets?.length?money(Math.min(...e.tickets.map(t=>Number(t.price)||0))):'Details soon'}</span>
     <button class="text-btn" onclick="eventDetails('${e.id}')">View details ↗</button>
@@ -746,7 +849,42 @@ function renderEvents(){
  `).join('');
 
  $('noEvents').classList.toggle('hidden',events.length>0);
-  events.forEach(e => loadEventCardAvailability(e.id));
+
+ // Fetch live ticket availability for each displayed event.
+ events.forEach(e => loadEventCardAvailability(e.id));
+}
+
+async function loadEventCardAvailability(eventId){
+ const box=document.getElementById('slots-'+String(eventId));
+ if(!box)return;
+
+ // Sample/demo cards are not stored in Supabase.
+ const uuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+ if(!uuidPattern.test(String(eventId))){
+  box.textContent='Demo event · availability shown at registration';
+  return;
+ }
+
+ if(!eventmileSupabase){
+  box.textContent='Ticket availability unavailable';
+  return;
+ }
+
+ try{
+  const {data,error}=await eventmileSupabase.rpc('event_tickets_remaining',{p_event_id:eventId});
+  if(error)throw error;
+  const remaining=Number(data);
+  if(!Number.isFinite(remaining)){
+   box.textContent='Check availability during registration';
+  }else if(remaining<=0){
+   box.textContent='🔴 Sold out';
+  }else{
+   box.textContent='🎟️ '+remaining.toLocaleString('en-IN')+' tickets available';
+  }
+ }catch(err){
+  console.error('EVENTMILE ticket availability:',err);
+  box.textContent='Check availability during registration';
+ }
 }
 
 function setCategory(category,button){
@@ -754,47 +892,6 @@ function setCategory(category,button){
  document.querySelectorAll('.filter').forEach(b=>b.classList.remove('active'));
  button.classList.add('active');
  renderEvents();
-  async function loadEventCardAvailability(eventId) {
-    const box = document.getElementById('slots-' + eventId);
-    if (!box) return;
-
-    const uuidPattern =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-    if (!uuidPattern.test(String(eventId))) {
-        box.textContent = 'Availability shown during registration';
-        return;
-    }
-
-    if (!eventmileSupabase) {
-        box.textContent = 'Availability unavailable';
-        return;
-    }
-
-    try {
-        const { data, error } = await eventmileSupabase.rpc(
-            'event_tickets_remaining',
-            { p_event_id: eventId }
-        );
-
-        if (error) throw error;
-
-        const remaining = Number(data);
-
-        if (!Number.isFinite(remaining)) {
-            box.textContent = 'Availability unavailable';
-        } else if (remaining <= 0) {
-            box.textContent = '🔴 Sold out';
-        } else {
-            box.textContent = '🎟️ ' +
-                remaining.toLocaleString('en-IN') +
-                ' tickets available';
-        }
-    } catch (error) {
-        console.error('Ticket availability error:', error);
-        box.textContent = 'Check availability during registration';
-    }
-}
 }
 
 function eventDetails(id){
@@ -905,6 +1002,53 @@ function closeEventDetails(){
  document.body.style.overflow='';
 }
 
+async function showTicket(registration,event,showNow=true){
+ const regId=registration.id||registration.registration_id||'';
+ if(!regId){alert('Ticket identifier is missing. Please refresh and try again.');return;}
+
+ // Recheck ticket status against Supabase before rendering the QR.
+ // If the signed-in attendee's ticket is cancelled, never display the QR.
+ let freshRegistration={...registration};
+ if(eventmileSupabase && eventmileUser){
+  try{
+   const {data,error}=await eventmileSupabase
+    .from('registrations')
+    .select('id,ticket_code,registration_status,attendee_name,ticket_name,ticket_price')
+    .eq('id',regId)
+    .eq('user_id',eventmileUser.id)
+    .maybeSingle();
+   if(error)throw error;
+   if(!data){
+    alert('Ticket could not be verified. Please sign in with the account used to register.');
+    return;
+   }
+   freshRegistration={...freshRegistration,...data};
+  }catch(err){
+   console.error('Ticket status verification:',err);
+   alert('Unable to verify ticket status with EVENTMILE. Please check your connection and try again. QR ticket was not opened.');
+   return;
+  }
+ }
+ const status=String(freshRegistration.registration_status||'confirmed').toLowerCase();
+ if(status!=='confirmed'){
+  $('ticketModal').classList.add('hidden');
+  alert(status==='cancelled'?'This ticket has been cancelled. Its QR code is no longer available.':'This ticket is not active, so its QR code cannot be opened.');
+  return;
+ }
+ const qrValue=freshRegistration.ticket_code||regId;
+ $('ticketEventName').textContent=event.title||'EVENTMILE Event';
+ $('ticketAttendee').textContent=freshRegistration.attendee_name||'Attendee';
+ $('ticketType').textContent=(freshRegistration.ticket_name||'General Admission')+' · '+money(freshRegistration.ticket_price||0);
+ $('ticketRegistrationId').textContent=regId;
+ $('ticketQr').innerHTML='';
+ $('ticketModal').classList.remove('hidden');
+ if(window.QRCode){new QRCode($('ticketQr'),{text:String(qrValue),width:190,height:190,colorDark:'#101110',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});}
+ else $('ticketQr').textContent='QR library unavailable. Ticket ID: '+qrValue;
+ $('ticketModalTitle').textContent=!showNow?'My EVENTMILE Ticket':'Your EVENTMILE Ticket';
+}
+function closeTicketModal(){$('ticketModal').classList.add('hidden');}
+function printTicket(){window.print();}
+
 async function registerForEvent(eventId){
  const name=$('registrationName').value.trim();
  const email=$('registrationEmail').value.trim();
@@ -942,11 +1086,11 @@ async function registerForEvent(eventId){
   // Logged-in accounts are limited to one registration per event by the database unique constraint.
   // If this account already registered, show the existing registration instead of a duplicate-key error.
   if(payload.user_id){
-   const {data:existing,error:lookupError}=await eventmileSupabase.from('registrations').select('id,attendee_name,ticket_name,ticket_price,registration_status').eq('event_id',eventId).eq('user_id',payload.user_id).maybeSingle();
+   const {data:existing,error:lookupError}=await eventmileSupabase.from('registrations').select('id,ticket_code,attendee_name,ticket_name,ticket_price,registration_status').eq('event_id',eventId).eq('user_id',payload.user_id).maybeSingle();
    if(lookupError)throw lookupError;
    if(existing){
-    alert('You are already registered for this event.\n\nEvent: '+event.title+'\nName: '+(existing.attendee_name||name)+'\nTicket: '+(existing.ticket_name||'Selected ticket')+'\nRegistration ID: '+existing.id+'\n\nNo additional registration was created.');
-    closeEventDetails();return;
+    alert('You are already registered for this event. No additional registration was created.');
+    closeEventDetails();showTicket(existing,event);return;
    }
   }
   // Capacity and duplicate checks happen atomically inside Supabase.
@@ -970,8 +1114,10 @@ async function registerForEvent(eventId){
    throw error;
   }
   const result=Array.isArray(data)?data[0]:data;
-  alert('Registration confirmed!\n\nEvent: '+event.title+'\nName: '+name+'\nTicket: '+payload.ticket_name+'\nPrice: '+money(payload.ticket_price)+'\nRegistration ID: '+result.registration_id+'\nTickets remaining: '+(result.tickets_remaining===null?'Not limited':result.tickets_remaining)+'\n\nNo online payment was collected.');
+  let ticketCode=null;
+  try{const {data:ticketRow}=await eventmileSupabase.from('registrations').select('ticket_code').eq('id',result.registration_id).maybeSingle();ticketCode=ticketRow?.ticket_code||null;}catch(e){console.warn('Could not fetch ticket_code; using registration ID for QR.',e);}
   closeEventDetails();
+  showTicket({id:result.registration_id,ticket_code:ticketCode,attendee_name:name,ticket_name:payload.ticket_name,ticket_price:payload.ticket_price},{title:event.title});
  }catch(err){console.error('EVENTMILE registration error:',err);alert('Registration could not be saved: '+(err.message||'Unknown error')+'\nPlease try again.');}
  finally{if(btn){btn.disabled=false;btn.textContent='Register Now →';}}
 }
@@ -992,12 +1138,120 @@ function closeOrganiserDashboard(){
 }
 
 function showDashTab(tab){
- ['builder','preview','manage'].forEach(t=>{
+ ['builder','preview','manage','cancellations','checkin'].forEach(t=>{
   $(t+'Tab').classList.toggle('hidden',t!==tab);
   $('tab'+t[0].toUpperCase()+t.slice(1)).classList.toggle('active',t===tab);
  });
  if(tab==='preview')renderPreview();
  if(tab==='manage')renderSavedEvents();
+ if(tab==='cancellations')loadCancellationRequests();
+}
+
+let eventmileQrScanner=null;
+let eventmileScannerBusy=false;
+
+async function openCheckinForEvent(eventId){
+ showDashTab('checkin');
+ await loadCheckinEvents();
+ const select=$('checkinEventSelect');
+ if(select){select.value=eventId;}
+ const result=$('checkinResult');
+ if(result)result.innerHTML='<div class="notice">Selected event. Start the camera scanner or enter a ticket code manually.</div>';
+}
+
+async function loadCheckinEvents(){
+ const select=$('checkinEventSelect');
+ if(!select)return;
+ if(!eventmileSupabase||!eventmileUser){select.innerHTML='<option value="">Please sign in</option>';return;}
+ select.innerHTML='<option value="">Loading events…</option>';
+ try{
+  const {data,error}=await eventmileSupabase.from('events').select('id,title,event_date,status').eq('owner_id',eventmileUser.id).order('event_date',{ascending:false});
+  if(error)throw error;
+  if(!data||!data.length){select.innerHTML='<option value="">No events found for this organizer</option>';return;}
+  select.innerHTML='<option value="">Select an event…</option>'+data.map(e=>`<option value="${esc(e.id)}">${esc(e.title||'Untitled event')} — ${esc(e.event_date||'')}</option>`).join('');
+ }catch(err){console.error('Load check-in events:',err);select.innerHTML='<option value="">Could not load events</option>';}
+}
+
+async function startEventmileScanner(){
+ if(!eventmileUser||!eventmileSupabase){alert('Please sign in as the event organizer.');return;}
+ if(!$('checkinEventSelect').value){alert('Select an event first.');return;}
+ if(!window.Html5Qrcode){alert('QR scanner library did not load. Check your internet connection.');return;}
+ await stopEventmileScanner();
+ const reader=$('eventmileQrReader');reader.innerHTML='';
+ eventmileQrScanner=new Html5Qrcode('eventmileQrReader');
+ try{
+  await eventmileQrScanner.start({facingMode:'environment'},{fps:10,qrbox:{width:240,height:240}},async decodedText=>{
+   if(eventmileScannerBusy)return;
+   eventmileScannerBusy=true;
+   await processEventmileCheckin(decodedText);
+   setTimeout(()=>{eventmileScannerBusy=false;},1800);
+  },()=>{});
+  $('checkinResult').innerHTML='Camera active. Point it at an EVENTMILE ticket QR.';
+ }catch(err){console.error('Scanner start:',err);$('checkinResult').textContent='Could not start camera. Allow camera permission or use manual code entry.';}
+}
+
+async function stopEventmileScanner(){
+ if(eventmileQrScanner){try{if(eventmileQrScanner.isScanning)await eventmileQrScanner.stop();await eventmileQrScanner.clear();}catch(e){console.warn('Stop scanner:',e);}eventmileQrScanner=null;}
+}
+
+async function checkinManualTicket(){const code=$('manualTicketCode').value.trim();if(!code){alert('Enter the ticket code.');return;}await processEventmileCheckin(code);}
+
+async function processEventmileCheckin(rawCode){
+ const eventId=$('checkinEventSelect')?.value;
+ if(!eventId){$('checkinResult').textContent='Please select your event first.';return;}
+ const ticketCode=String(rawCode||'').trim();
+ $('checkinResult').innerHTML='<div class="notice">Checking ticket…</div>';
+ try{
+  const {data,error}=await eventmileSupabase.rpc('organizer_check_in_ticket',{p_event_id:eventId,p_ticket_code:ticketCode});
+  if(error)throw error;
+  const result=Array.isArray(data)?data[0]:data;
+  if(result&&result.success){
+   $('checkinResult').innerHTML=`<div class="notice" style="border-color:var(--lime)"><strong>✅ CHECK-IN SUCCESSFUL</strong><br>${esc(result.attendee_name||'Attendee')}<br>${esc(result.ticket_name||'Ticket')}<br>${esc(result.event_title||'Event')}<br><small>Checked in: ${esc(result.checked_in_at||new Date().toLocaleString())}</small></div>`;
+   $('manualTicketCode').value='';
+  }else{
+   const msg=result?.message||'Ticket check-in was rejected.';
+   $('checkinResult').innerHTML=`<div class="notice" style="border-color:#ff6b6b"><strong>❌ CHECK-IN REJECTED</strong><br>${esc(msg)}</div>`;
+  }
+ }catch(err){console.error('Check-in:',err);$('checkinResult').innerHTML='<div class="notice" style="border-color:#ff6b6b">Check-in failed. Confirm you have installed the organizer_check_in_ticket SQL function. '+esc(err.message||'')+'</div>';}
+}
+
+async function loadCancellationRequests(){
+ const box=$('cancellationRequestsList');
+ if(!box)return;
+ if(!eventmileUser||!eventmileSupabase){box.innerHTML='<div class="notice">Please sign in as the event organizer first.</div>';return;}
+ box.innerHTML='<div class="notice">Loading cancellation requests…</div>';
+ try{
+  const {data,error}=await eventmileSupabase.rpc('organizer_cancellation_requests');
+  if(error)throw error;
+  if(!data||!data.length){box.innerHTML='<div class="notice">No cancellation requests found for your events.</div>';return;}
+  box.innerHTML=data.map(r=>`<div class="form-panel" style="margin:12px 0">
+   <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+    <div><strong>${esc(r.event_title||'Event')}</strong><div style="color:var(--muted);font-size:13px">${esc(r.participant_name||'Participant')} · ${esc(r.attendee_email||'No email')}</div></div>
+    <span class="badge">${esc(r.request_status||'pending')}</span>
+   </div>
+   <p><strong>Ticket:</strong> ${esc(r.ticket_name||'General Admission')} × ${Number(r.ticket_quantity||1)}</p>
+   <p><strong>Reason:</strong> ${esc(r.reason||'No reason provided')}</p>
+   <p style="font-size:12px;color:var(--muted)">Requested: ${esc(r.created_at?new Date(r.created_at).toLocaleString():'')}</p>
+   ${String(r.request_status).toLowerCase()==='pending'?`<div class="actions"><button class="btn-primary" onclick="reviewCancellation('${r.request_id}','approved')">Approve cancellation</button><button class="btn-dark" onclick="reviewCancellation('${r.request_id}','rejected')">Reject request</button></div>`:''}
+  </div>`).join('');
+ }catch(err){
+  console.error('Loading cancellation requests:',err);
+  box.innerHTML='<div class="notice">Could not load requests. Run the organizer cancellation dashboard SQL setup in Supabase first.</div>';
+ }
+}
+
+async function reviewCancellation(requestId,decision){
+ const action=decision==='approved'?'approve cancellation':'reject this request';
+ if(!confirm('Are you sure you want to '+action+'? Refunds are not automatically issued.'))return;
+ try{
+  const {data,error}=await eventmileSupabase.rpc('review_ticket_cancellation',{p_request_id:requestId,p_decision:decision});
+  if(error)throw error;
+  alert(data==='approved'?'Cancellation approved. Ticket status is now cancelled.':'Cancellation request rejected.');
+  await loadCancellationRequests();
+ }catch(err){
+  console.error('Review cancellation:',err);
+  alert('Could not update request. Check the organizer cancellation SQL setup in Supabase. '+(err.message||''));
+ }
 }
 
 function addTicket(ticket={}){
@@ -1163,7 +1417,7 @@ function renderSavedEvents(){
  <button class="btn-dark" onclick="editEvent('${e.id}')">Edit</button>
  <button class="btn-dark" onclick="changeStatus('${e.id}')">${e.status==='Published'?'Unpublish':'Publish'}</button>
  <button class="btn-dark" onclick="loadEventRegistrations('${e.id}')">View attendees</button>
- <button class="btn-dark" onclick="openEventQRScanner('${e.id}')">Scan QR check-in</button>
+ <button class="btn-dark" onclick="openCheckinForEvent('${e.id}')">QR Check-in</button>
  <button class="btn-dark" onclick="exportEventAttendees('${e.id}')">Download attendees CSV</button>
  <button class="remove-btn" onclick="deleteEvent('${e.id}')">Delete</button>
  <div id="attendees-${e.id}" style="width:100%;margin-top:10px"></div>
@@ -1179,90 +1433,8 @@ async function loadEventRegistrations(eventId){
   const {data,error}=await eventmileSupabase.from('registrations').select('*').eq('event_id',eventId).order('created_at',{ascending:false});
   if(error)throw error;
   if(!data?.length){box.innerHTML='<p>No registrations yet.</p>';return;}
-  const checkedInCount=data.filter(r=>r.checked_in_at).length;
-  box.innerHTML='<h4>Attendees ('+data.length+') · Checked in: '+checkedInCount+'</h4>'+data.map(r=>`<div class="card-row" style="margin:8px 0;padding:12px"><strong>${esc(r.attendee_name||'Attendee')}</strong><p>${esc(r.attendee_email||'')} ${r.attendee_phone?' · '+esc(r.attendee_phone):''}</p><p>${esc(r.ticket_name||'Ticket')} · ${money(r.ticket_price||0)} · ${esc(r.registration_status||'')}</p><p><strong>${r.checked_in_at?'✅ Checked in':'⏳ Not checked in'}</strong>${r.checked_in_at?' · '+new Date(r.checked_in_at).toLocaleString('en-IN'):''}</p><small>Registered: ${r.created_at?new Date(r.created_at).toLocaleString('en-IN'):'—'}</small>${r.ticket_code?`<p><button class="btn-dark" onclick="showQRCodeTicket('${r.ticket_code}',decodeURIComponent('${encodeURIComponent(r.attendee_name||'Attendee')}'),decodeURIComponent('${encodeURIComponent((getEvents().find(e=>e.id===eventId)?.title)||'EVENTMILE Event')}'))">Show QR ticket</button></p>`:''}${r.registration_status==='confirmed'&&!r.checked_in_at?`<p><button class="btn-dark" onclick="checkInAttendee('${r.id}','${eventId}')">Check in attendee</button></p>`:''}${r.answers&&Object.keys(r.answers).length?'<p>Answers: '+esc(JSON.stringify(r.answers))+'</p>':''}</div>`).join('');
+  box.innerHTML='<h4>Attendees ('+data.length+')</h4>'+data.map(r=>`<div class="card-row" style="margin:8px 0;padding:12px"><strong>${esc(r.attendee_name||'Attendee')}</strong><p>${esc(r.attendee_email||'')} ${r.attendee_phone?' · '+esc(r.attendee_phone):''}</p><p>${esc(r.ticket_name||'Ticket')} · ${money(r.ticket_price||0)} · ${esc(r.registration_status||'')}</p><small>Registered: ${r.created_at?new Date(r.created_at).toLocaleString('en-IN'):'—'}</small>${r.answers&&Object.keys(r.answers).length?'<p>Answers: '+esc(JSON.stringify(r.answers))+'</p>':''}</div>`).join('');
  }catch(err){console.error(err);box.innerHTML='<p>Could not load attendees: '+esc(err.message)+'</p>';}
-}
-
-function showQRCodeTicket(ticketCode, attendeeName, eventTitle){
- if(!ticketCode){alert('This registration has no ticket code yet.');return;}
- const overlay=document.createElement('div');
- overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:16px;';
- overlay.innerHTML=`<div style="background:#111;padding:24px;border:1px solid #333;border-radius:18px;max-width:420px;width:100%;text-align:center;color:#fff"><h2 style="color:#c8ff4d">EVENTMILE TICKET</h2><p>${esc(eventTitle)}</p><strong>${esc(attendeeName)}</strong><div id="eventmile-ticket-qr" style="display:flex;justify-content:center;background:#fff;padding:14px;margin:18px auto;width:max-content;border-radius:8px"></div><p style="font-size:12px;word-break:break-all;color:#aaa">Ticket code: ${esc(ticketCode)}</p><p style="font-size:12px;color:#aaa">Present this QR code to the event organizer at check-in.</p><button class="btn-dark" id="eventmile-close-ticket">Close</button></div>`;
- document.body.appendChild(overlay);
- overlay.querySelector('#eventmile-close-ticket').onclick=()=>overlay.remove();
- if(typeof QRCode==='undefined'){
-   overlay.querySelector('#eventmile-ticket-qr').innerHTML='<p style="color:#111">QR library unavailable. Ticket code is shown below.</p>';
- }else{
-   new QRCode(overlay.querySelector('#eventmile-ticket-qr'),{text:ticketCode,width:220,height:220,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
- }
-}
-
-async function checkInAttendee(registrationId,eventId){
- if(!eventmileSupabase||!eventmileUser){toast('Please log in as the event organiser.');return;}
- if(!confirm('Mark this attendee as checked in?'))return;
- try{
-  const {data,error}=await eventmileSupabase.rpc('check_in_registration',{p_registration_id:registrationId});
-  if(error)throw error;
-  if(data?.already_checked_in){toast('This attendee was already checked in.');}
-  else{toast('Attendee checked in successfully!');}
-  await loadEventRegistrations(eventId);
- }catch(err){console.error(err);alert('Check-in failed: '+(err.message||'Unknown error')+'\n\nMake sure you are logged in as the event owner.');}
-}
-
-
-let eventmileQRScanner=null;
-let eventmileScannerEventId=null;
-let eventmileScanBusy=false;
-
-async function openEventQRScanner(eventId){
- if(!eventmileSupabase||!eventmileUser){alert('Please log in as the event organizer first.');return;}
- if(typeof Html5Qrcode==='undefined'){alert('QR scanner library did not load. Check your internet connection and reload.');return;}
- closeEventQRScanner();
- eventmileScannerEventId=eventId;
- const modal=document.createElement('div');modal.id='eventmile-qr-scanner-modal';
- modal.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;padding:14px;';
- modal.innerHTML=`<div style="background:#111;border:1px solid #333;border-radius:16px;padding:20px;max-width:520px;width:100%;color:#fff;text-align:center"><h2 style="color:#c8ff4d">EVENTMILE QR Check-in</h2><p>Scan an attendee ticket QR code.</p><div id="eventmile-qr-reader" style="width:100%;max-width:460px;margin:auto"></div><p id="eventmile-qr-status" style="margin:14px 0;color:#ccc">Allow camera access when prompted.</p><button class="btn-dark" id="eventmile-qr-close">Close scanner</button></div>`;
- document.body.appendChild(modal);
- modal.querySelector('#eventmile-qr-close').onclick=closeEventQRScanner;
- try{
-  eventmileQRScanner=new Html5Qrcode('eventmile-qr-reader');
-  await eventmileQRScanner.start({facingMode:'environment'},{fps:10,qrbox:{width:230,height:230}},async decodedText=>{
-   if(eventmileScanBusy)return;
-   eventmileScanBusy=true;
-   const status=document.getElementById('eventmile-qr-status');
-   if(status)status.textContent='QR detected. Verifying ticket…';
-   try{await processEventmileScannedTicket(decodedText,eventId);}
-   finally{eventmileScanBusy=false;}
-  },()=>{});
- }catch(err){
-  const status=document.getElementById('eventmile-qr-status');
-  if(status)status.textContent='Camera could not start: '+(err.message||err)+' . Try HTTPS or browser camera permissions.';
- }
-}
-
-async function processEventmileScannedTicket(ticketCode,eventId){
- const status=document.getElementById('eventmile-qr-status');
- if(!eventmileSupabase||!eventmileUser){if(status)status.textContent='Organizer login required.';return;}
- ticketCode=String(ticketCode||'').trim();
- if(!ticketCode){if(status)status.textContent='QR code is empty.';return;}
- try{
-  const {data:registration,error}=await eventmileSupabase.from('registrations').select('id,event_id,registration_status,checked_in_at,attendee_name,ticket_code').eq('ticket_code',ticketCode).eq('event_id',eventId).maybeSingle();
-  if(error)throw error;
-  if(!registration){if(status)status.textContent='Invalid ticket or ticket belongs to another event.';return;}
-  if(registration.registration_status!=='confirmed'){if(status)status.textContent='Ticket is not confirmed.';return;}
-  const {data:check,error:checkError}=await eventmileSupabase.rpc('check_in_registration',{p_registration_id:registration.id});
-  if(checkError)throw checkError;
-  if(status)status.textContent=check?.already_checked_in?'Already checked in: '+(registration.attendee_name||'attendee'):'Successfully checked in: '+(registration.attendee_name||'attendee');
-  await loadEventRegistrations(eventId);
-  if(eventmileQRScanner){try{await eventmileQRScanner.stop();}catch(e){}}
- }catch(err){console.error(err);if(status)status.textContent='Check-in error: '+(err.message||'Please retry.');}
-}
-
-async function closeEventQRScanner(){
- if(eventmileQRScanner){try{if(eventmileQRScanner.isScanning)await eventmileQRScanner.stop();}catch(e){}try{await eventmileQRScanner.clear();}catch(e){}eventmileQRScanner=null;}
- document.getElementById('eventmile-qr-scanner-modal')?.remove();
- eventmileScannerEventId=null;
 }
 
 async function exportEventAttendees(eventId){
