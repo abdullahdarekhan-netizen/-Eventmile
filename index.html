@@ -194,6 +194,7 @@ let eventmileAuthMode = "login";
 let eventmileSelectedHost = null;
 let eventmileHostFlowPending = false;
 let eventmileHostProfilesCache = [];
+let eventmileEditingHostProfileId = null;
 let eventmileEventsCache = [];
 try { if(window.supabase) eventmileSupabase=window.supabase.createClient(EVENTMILE_SUPABASE_URL,EVENTMILE_SUPABASE_KEY); } catch(e){console.error(e);}
 
@@ -284,7 +285,8 @@ function getHostProfiles(){return eventmileHostProfilesCache;}
 async function showHostProfileChooser(){
  try{
   const profiles=await loadHostProfilesFromSupabase();
-  $('existingProfiles').innerHTML=profiles.length?'<h3>Your host profiles</h3>'+profiles.map(p=>`<button class="btn-dark" style="width:100%;margin:5px 0;text-align:left" onclick="selectHostProfile('${p.id}')">${p.type==='organization'?'🏢':'🤝'} ${esc(p.name)} — Open dashboard</button>`).join(''):'';
+  $('existingProfiles').innerHTML=profiles.length?'<h3>Your host profiles</h3><p style="color:var(--muted);font-size:12px">Long-press a profile (or right-click) to delete it.</p>'+profiles.map(p=>`<button class="btn-dark host-profile-choice" data-host-profile-id="${p.id}" style="width:100%;margin:5px 0;text-align:left" onclick="selectHostProfile('${p.id}')">${p.type==='organization'?'🏢':'🤝'} ${esc(p.name)} — Open dashboard</button>`).join(''):''; 
+   $('existingProfiles').querySelectorAll('.host-profile-choice').forEach(b=>bindHostProfileLongPress(b,b.dataset.hostProfileId));
   showModal('profileChoiceModal');
  }catch(err){alert('Could not load host profiles from Supabase: '+err.message);}
 }
@@ -305,13 +307,60 @@ async function saveHostProfile(e){
  const payload={owner_id:eventmileUser.id,type,name:$('hostProfileName').value.trim(),logo_url:$('hostProfileLogo').value.trim()||null,description:$('hostProfileDescription').value.trim()||null,location:$('hostProfileLocation').value.trim()||null,contact_email:$('hostProfileEmail').value.trim()||eventmileUser.email||null,social_url:$('hostProfileSocial').value.trim()||null};
  const btn=e.submitter;if(btn)btn.disabled=true;
  try{
-  const {data,error}=await eventmileSupabase.from('host_profiles').insert(payload).select().single();
+  let data,error;
+  if(eventmileEditingHostProfileId){
+   ({data,error}=await eventmileSupabase.from('host_profiles').update({type:payload.type,name:payload.name,logo_url:payload.logo_url,description:payload.description,location:payload.location,contact_email:payload.contact_email,social_url:payload.social_url}).eq('id',eventmileEditingHostProfileId).eq('owner_id',eventmileUser.id).select().single());
+  }else{
+   ({data,error}=await eventmileSupabase.from('host_profiles').insert(payload).select().single());
+  }
   if(error)throw error;
   const profile={id:data.id,user_id:data.owner_id,type:data.type,name:data.name,logo:data.logo_url||'',description:data.description||'',location:data.location||'',email:data.contact_email||'',social:data.social_url||'',created_at:data.created_at};
-  eventmileHostProfilesCache.unshift(profile);eventmileSelectedHost=profile;
-  hideModal('profileFormModal');showHostDashboard(profile);
+  const existingIndex=eventmileHostProfilesCache.findIndex(p=>p.id===profile.id);
+  if(existingIndex>=0)eventmileHostProfilesCache[existingIndex]=profile;else eventmileHostProfilesCache.unshift(profile);
+  eventmileSelectedHost=profile;eventmileEditingHostProfileId=null;
+  hideModal('profileFormModal');showHostDashboard(profile);toast('Host profile saved.');
  }catch(err){$('profileFormStatus').textContent='Save failed: '+err.message;$('profileFormStatus').classList.remove('hidden');}
  finally{if(btn)btn.disabled=false;}
+}
+function editHostProfile(id){
+ const p=eventmileHostProfilesCache.find(x=>x.id===id)||eventmileSelectedHost;
+ if(!p){alert('Host profile not found.');return;}
+ eventmileEditingHostProfileId=p.id;
+ $('hostProfileType').value=p.type||'organization';
+ $('profileFormTitle').textContent='Edit Host Profile';
+ $('hostNameLabel').textContent=p.type==='organization'?'Organization name *':'Community name *';
+ $('hostProfileName').value=p.name||'';
+ $('hostProfileLogo').value=p.logo||'';
+ $('hostProfileDescription').value=p.description||'';
+ $('hostProfileLocation').value=p.location||'';
+ $('hostProfileEmail').value=p.email||'';
+ $('hostProfileSocial').value=p.social||'';
+ $('profileFormStatus').classList.add('hidden');
+ showModal('profileFormModal');
+}
+async function deleteHostProfile(id){
+ const p=eventmileHostProfilesCache.find(x=>x.id===id);
+ if(!p||!eventmileUser||!eventmileSupabase)return;
+ const ok=confirm(`Delete host profile “${p.name}”? This cannot be undone. Events associated with this profile may prevent deletion or lose their organizer association. Make sure you understand the impact.`);
+ if(!ok)return;
+ try{
+  const {error}=await eventmileSupabase.from('host_profiles').delete().eq('id',id).eq('owner_id',eventmileUser.id);
+  if(error)throw error;
+  eventmileHostProfilesCache=eventmileHostProfilesCache.filter(x=>x.id!==id);
+  if(eventmileSelectedHost?.id===id)eventmileSelectedHost=null;
+  await showHostProfileChooser();
+  toast('Host profile deleted.');
+ }catch(err){alert('Profile deletion failed: '+err.message+'\\nIf events reference this profile, update/delete those event references first.');}
+}
+function bindHostProfileLongPress(button,id){
+ let timer=null,triggered=false;
+ const start=()=>{triggered=false;timer=setTimeout(()=>{triggered=true;const action=confirm('Delete this host profile?');if(action)deleteHostProfile(id);},750);};
+ const cancel=()=>{if(timer)clearTimeout(timer);timer=null;};
+ button.addEventListener('touchstart',start,{passive:true});
+ button.addEventListener('touchend',cancel);
+ button.addEventListener('touchmove',cancel);
+ button.addEventListener('contextmenu',e=>{e.preventDefault();if(confirm('Delete this host profile?'))deleteHostProfile(id);});
+ button.addEventListener('click',e=>{if(triggered){e.preventDefault();e.stopPropagation();triggered=false;}});
 }
 function selectHostProfile(id){
  const profile=getHostProfiles().find(p=>p.id===id);
@@ -426,6 +475,8 @@ if(eventmileSupabase){
     <button onclick="showMyTickets()">🎟 My tickets</button>
     <button onclick="showInbox()">✉ Inbox</button>
     <button onclick="showInterested()">♡ Interested events & plans</button>
+    <button onclick="showSavedOrganizers()">★ Saved organizers</button>
+    <button onclick="showSavedEvents()">♡ Saved events</button>
     <hr>
     <div class="menu-label">HOST CONTROL</div>
     <button onclick="startHostFlow()">＋ Create an event</button>
@@ -579,7 +630,24 @@ if(eventmileSupabase){
    <button class="choice-card" onclick="continueToEventBuilder()"><div style="font-size:30px">＋</div><h3>Create an event</h3><p style="color:var(--muted)">Build your event and registration options.</p></button>
    <button class="choice-card" onclick="openManageHostEvents()"><div style="font-size:30px">▣</div><h3>Manage events</h3><p style="color:var(--muted)">View your saved events.</p></button>
   </div>
-  <button class="btn-dark" style="margin-top:15px" onclick="showHostProfiles()">Switch host profile</button>
+  <div class="actions"><button class="btn-dark" onclick="editHostProfile(eventmileSelectedHost?.id)">✎ Edit host profile</button><button class="btn-dark" onclick="showHostProfiles()">Switch host profile</button></div>
+ </div>
+</div>
+
+<!-- SAVED ORGANIZERS -->
+<div id="savedOrganizersModal" class="modal-overlay hidden">
+ <div class="modal-card" style="max-width:680px;max-height:90vh;overflow:auto">
+  <div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">YOUR COLLECTION</div><h2>★ Saved organizers</h2></div><button class="close" onclick="hideModal('savedOrganizersModal')">✕</button></div>
+  <div id="savedOrganizersContent"></div>
+ </div>
+</div>
+
+
+<!-- SAVED EVENTS -->
+<div id="savedEventsModal" class="modal-overlay hidden">
+ <div class="modal-card" style="max-width:680px;max-height:90vh;overflow:auto">
+  <div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">YOUR COLLECTION</div><h2>♡ Saved events</h2></div><button class="close" onclick="hideModal('savedEventsModal')">✕</button></div>
+  <div id="savedEventsContent"></div>
  </div>
 </div>
 
@@ -839,6 +907,28 @@ function esc(s){
  return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+function getSavedEventIds(){
+ try{return JSON.parse(localStorage.getItem('eventmile_saved_events')||'[]').map(String);}catch(e){return [];}
+}
+function toggleSavedEvent(eventId){
+ const id=String(eventId),ids=getSavedEventIds();
+ const next=ids.includes(id)?ids.filter(x=>x!==id):[...ids,id];
+ localStorage.setItem('eventmile_saved_events',JSON.stringify(next));
+ renderEvents();
+ if(!$('savedEventsModal').classList.contains('hidden'))showSavedEvents();
+ if(typeof toast==='function')toast(next.includes(id)?'Event saved':'Event removed from saved events');
+}
+function removeSavedEventFromList(eventId){
+ localStorage.setItem('eventmile_saved_events',JSON.stringify(getSavedEventIds().filter(id=>id!==String(eventId))));
+ showSavedEvents();renderEvents();
+}
+function showSavedEvents(){
+ const box=$('savedEventsContent');showModal('savedEventsModal');
+ const ids=getSavedEventIds();
+ const events=allEvents().filter(e=>ids.includes(String(e.id)));
+ box.innerHTML=events.length?events.map(e=>`<div class="notice" style="display:flex;align-items:center;gap:12px;margin:10px 0;flex-wrap:wrap"><div style="flex:1;min-width:180px"><strong>${esc(e.title)}</strong><div style="font-size:13px;color:var(--muted);margin-top:4px">${niceDate(e.date)} · ${esc(e.location||'Location TBA')}</div></div><button class="btn-primary" onclick="hideModal('savedEventsModal');eventDetails('${e.id}')">View event</button><button class="btn-dark" onclick="removeSavedEventFromList('${e.id}')">Remove</button></div>`).join(''):'<div class="notice">You have not saved any events yet. Browse events and tap ♡ Save.</div>';
+}
+
 function renderEvents(){
  const query=($('eventSearch').value||'').toLowerCase();
  const location=$('locationFilter').value||'';
@@ -865,6 +955,8 @@ function renderEvents(){
    <div class="ticket-availability" id="slots-${esc(e.id)}">Checking ticket availability…</div>
    <div class="event-bottom">
     <span class="price">${e.tickets?.length?money(Math.min(...e.tickets.map(t=>Number(t.price)||0))):'Details soon'}</span>
+    <button class="btn-dark" style="padding:8px 10px" onclick="toggleSavedEvent('${e.id}');return false">${getSavedEventIds().includes(String(e.id))?'♥ Saved':'♡ Save'}</button>
+    <button class="btn-dark" style="padding:8px 10px" onclick="shareEvent('${e.id}')">↗ Share</button>
     <button class="text-btn" onclick="eventDetails('${e.id}')">View details ↗</button>
    </div>
   </div>
@@ -917,6 +1009,64 @@ function setCategory(category,button){
  renderEvents();
 }
 
+async function copyOrganizerEmail(email){
+ try{
+  if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(email);}
+  else{const ta=document.createElement('textarea');ta.value=email;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();}
+  toast('Organizer email copied');
+ }catch(err){prompt('Copy organizer email:',email);}
+}
+
+async function copyOrganizerProfileLink(profileId){
+ const url=new URL(window.location.href);
+ url.searchParams.set('host',profileId);
+ url.hash='';
+ const shareUrl=url.toString();
+ try{
+  if(navigator.share){await navigator.share({title:'EVENTMILE Organizer Profile',url:shareUrl});return;}
+ }catch(err){if(err&&err.name==='AbortError')return;}
+ try{await navigator.clipboard.writeText(shareUrl);toast('Organizer profile link copied!');}
+ catch(err){prompt('Copy this organizer profile link:',shareUrl);}
+}
+function getSavedOrganizerIds(){
+ try{return JSON.parse(localStorage.getItem('eventmile_saved_organizers')||'[]');}catch(e){return [];}
+}
+function toggleSavedOrganizer(profileId){
+ const ids=getSavedOrganizerIds();
+ const saved=ids.includes(profileId);
+ const next=saved?ids.filter(id=>id!==profileId):[...ids,profileId];
+ localStorage.setItem('eventmile_saved_organizers',JSON.stringify(next));
+ const btn=$('saveOrganizerBtn');
+ if(btn){btn.innerHTML=saved?'☆ Save organizer':'★ Organizer saved';btn.classList.toggle('btn-primary',!saved);btn.classList.toggle('btn-dark',saved);}
+ toast(saved?'Organizer removed from saved list':'Organizer saved on this device');
+}
+async function showSavedOrganizers(){
+ const box=$('savedOrganizersContent');
+ if(!box)return;
+ showModal('savedOrganizersModal');
+ const ids=getSavedOrganizerIds();
+ if(!ids.length){box.innerHTML='<div class="notice">You have not saved any organizers yet. Open an organizer profile and tap ☆ Save organizer.</div>';return;}
+ box.innerHTML='<div class="notice">Loading your saved organizers…</div>';
+ try{
+  let profiles=eventmileHostProfilesCache.filter(p=>ids.includes(p.id));
+  if(eventmileSupabase){
+   const {data,error}=await eventmileSupabase.from('host_profiles').select('id,type,name,logo_url,description,location').in('id',ids);
+   if(error)throw error;
+   profiles=(data||[]).map(p=>({id:p.id,type:p.type,name:p.name,logo:p.logo_url||'',description:p.description||'',location:p.location||''}));
+  }
+  const foundIds=profiles.map(p=>p.id);
+  const stale=ids.filter(id=>!foundIds.includes(id));
+  if(stale.length)localStorage.setItem('eventmile_saved_organizers',JSON.stringify(ids.filter(id=>!stale.includes(id))));
+  box.innerHTML=profiles.length?profiles.map(p=>`<div class="notice" style="display:flex;align-items:center;gap:12px;margin:10px 0">${p.logo?`<img src="${esc(p.logo)}" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:50%">`:`<div style="width:52px;height:52px;border-radius:50%;background:var(--panel);display:grid;place-items:center;font-size:22px">${p.type==='organization'?'🏢':'🤝'}</div>`}<div style="flex:1;min-width:0"><strong>${esc(p.name)}</strong><div style="color:var(--muted);font-size:13px">${esc(p.location||'Location not listed')}</div></div><button class="btn-primary" onclick="hideModal('savedOrganizersModal');viewPublicHostProfile('${p.id}')">View profile</button><button class="btn-dark" onclick="removeSavedOrganizerFromList('${p.id}')">Remove</button></div>`).join(''):'<div class="notice">Saved organizers could not be found. They may have deleted their profiles.</div>';
+ }catch(err){console.error(err);box.innerHTML='<div class="notice">Could not load saved organizers. Please try again.</div>';}
+}
+function removeSavedOrganizerFromList(profileId){
+ const ids=getSavedOrganizerIds().filter(id=>id!==profileId);
+ localStorage.setItem('eventmile_saved_organizers',JSON.stringify(ids));
+ showSavedOrganizers();
+ toast('Organizer removed from saved list');
+}
+
 async function viewPublicHostProfile(profileId){
  const box=$('publicHostProfileContent');
  if(!box){alert('Organizer profile viewer is unavailable.');return;}
@@ -925,14 +1075,28 @@ async function viewPublicHostProfile(profileId){
  try{
   let profile=eventmileHostProfilesCache.find(p=>p.id===profileId)||null;
   if(eventmileSupabase){
-   const {data,error}=await eventmileSupabase.from('host_profiles').select('id,type,name,logo_url,description,location,social_url,created_at').eq('id',profileId).maybeSingle();
+   const {data,error}=await eventmileSupabase.from('host_profiles').select('id,type,name,logo_url,description,location,social_url,contact_email,created_at').eq('id',profileId).maybeSingle();
    if(error)throw error;
-   if(data)profile={id:data.id,type:data.type,name:data.name,logo:data.logo_url||'',description:data.description||'',location:data.location||'',social:data.social_url||'',created_at:data.created_at};
+   if(data)profile={id:data.id,type:data.type,name:data.name,logo:data.logo_url||'',description:data.description||'',location:data.location||'',social:data.social_url||'',email:data.contact_email||'',created_at:data.created_at};
   }
   if(!profile){box.innerHTML='<div class="notice">Organizer profile could not be loaded. The profile may not be publicly accessible yet.</div>';return;}
   const hosted=allEvents().filter(e=>e.hostProfileId===profileId&&e.status==='Published');
-  box.innerHTML=`<div style="text-align:center;padding:18px 0 10px">${profile.logo?`<img src="${esc(profile.logo)}" alt="${esc(profile.name)}" style="width:90px;height:90px;object-fit:cover;border-radius:50%;border:1px solid var(--border)">`:`<div style="width:90px;height:90px;border-radius:50%;background:var(--panel);display:grid;place-items:center;margin:auto;font-size:32px">${profile.type==='organization'?'🏢':'🤝'}</div>`}<h2 style="margin:12px 0 4px">${esc(profile.name)}</h2><span class="tag">${profile.type==='organization'?'Organization':'Community'}</span>${profile.location?`<p style="color:var(--muted)">📍 ${esc(profile.location)}</p>`:''}</div><p>${esc(profile.description||'No organizer description added yet.')}</p>${profile.social?`<p><a href="${esc(profile.social)}" target="_blank" rel="noopener noreferrer" class="text-btn">Website / Social profile ↗</a></p>`:''}<hr style="border-color:var(--border);margin:18px 0"><h3>Published events (${hosted.length})</h3>${hosted.length?hosted.map(e=>`<div class="notice" style="margin:10px 0"><strong>${esc(e.title)}</strong><div style="color:var(--muted);margin:5px 0">${niceDate(e.date)} · ${esc(e.location||'Location TBA')}</div><button class="text-btn" onclick="hideModal('publicHostProfileModal');eventDetails('${e.id}')">View event ↗</button></div>`).join(''):'<p style="color:var(--muted)">No published events right now.</p>'}`;
+  box.innerHTML=`<div style="text-align:center;padding:18px 0 10px">${profile.logo?`<img src="${esc(profile.logo)}" alt="${esc(profile.name)}" style="width:90px;height:90px;object-fit:cover;border-radius:50%;border:1px solid var(--border)">`:`<div style="width:90px;height:90px;border-radius:50%;background:var(--panel);display:grid;place-items:center;margin:auto;font-size:32px">${profile.type==='organization'?'🏢':'🤝'}</div>`}<h2 style="margin:12px 0 4px">${esc(profile.name)}</h2><span class="tag">${profile.type==='organization'?'Organization':'Community'}</span>${profile.location?`<p style="color:var(--muted)">📍 ${esc(profile.location)}</p>`:''}</div><p>${esc(profile.description||'No organizer description added yet.')}</p><div style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0"><button type="button" class="btn-dark" onclick="copyOrganizerProfileLink('${profileId}')">🔗 Share organizer profile</button><button type="button" id="saveOrganizerBtn" class="${getSavedOrganizerIds().includes(profileId)?'btn-primary':'btn-dark'}" onclick="toggleSavedOrganizer('${profileId}')">${getSavedOrganizerIds().includes(profileId)?'★ Organizer saved':'☆ Save organizer'}</button></div>${profile.social?`<p><a href="${esc(profile.social)}" target="_blank" rel="noopener noreferrer" class="text-btn">Website / Social profile ↗</a></p>`:''}${profile.email?`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"><a href="https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(profile.email)}" target="_blank" rel="noopener noreferrer" class="btn-primary" style="display:inline-block;text-decoration:none">✉ Open Gmail</a><button type="button" class="text-btn" onclick="copyOrganizerEmail('${esc(profile.email).replace(/'/g, "\\'")}')">Copy email</button></div><p style="font-size:13px;color:var(--muted);word-break:break-word">${esc(profile.email)}</p>`:''}<hr style="border-color:var(--border);margin:18px 0"><h3>Published events (${hosted.length})</h3>${hosted.length?hosted.map(e=>`<div class="notice" style="margin:10px 0"><strong>${esc(e.title)}</strong><div style="color:var(--muted);margin:5px 0">${niceDate(e.date)} · ${esc(e.location||'Location TBA')}</div><button class="text-btn" onclick="hideModal('publicHostProfileModal');eventDetails('${e.id}')">View event ↗</button></div>`).join(''):'<p style="color:var(--muted)">No published events right now.</p>'}`;
  }catch(err){console.error(err);box.innerHTML=`<div class="notice">Could not load organizer profile: ${esc(err.message||'Please try again later.')}</div>`;}
+}
+
+async function shareEvent(eventId){
+ const event=allEvents().find(e=>String(e.id)===String(eventId));
+ if(!event){toast('Event not found');return;}
+ const url=new URL(window.location.href);
+ url.searchParams.set('event',String(eventId));
+ url.searchParams.delete('host');
+ const shareData={title:`${event.title} | EVENTMILE`,text:`Check out ${event.title} on EVENTMILE!`,url:url.toString()};
+ try{
+  if(navigator.share){await navigator.share(shareData);}
+  else if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(url.toString());toast('Event link copied!');}
+  else{window.prompt('Copy this event link:',url.toString());}
+ }catch(err){if(err&&err.name!=='AbortError'){console.error(err);window.prompt('Copy this event link:',url.toString());}}
 }
 
 function eventDetails(id){
@@ -949,6 +1113,7 @@ function eventDetails(id){
  <div class="event-details-content">
   <span class="tag">${esc(event.category)}</span>
   <h1>${esc(event.title)}</h1>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0"><button class="btn-dark" type="button" onclick="shareEvent('${event.id}')">↗ Share event</button><button class="btn-dark" type="button" onclick="toggleSavedEvent('${event.id}')">${getSavedEventIds().includes(String(event.id))?'♥ Saved':'♡ Save event'}</button></div>
   <p style="color:var(--muted)">${esc(event.description)}</p>
 
   <div class="event-info-grid">
@@ -1675,6 +1840,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
   });
   updateAccountMenu();
+  const sharedHostId=new URLSearchParams(window.location.search).get('host');
+  if(sharedHostId) setTimeout(()=>viewPublicHostProfile(sharedHostId),500);
+  const sharedEventId=new URLSearchParams(window.location.search).get('event');
+  if(sharedEventId) setTimeout(()=>eventDetails(sharedEventId),1200);
 });
 </script>
 
