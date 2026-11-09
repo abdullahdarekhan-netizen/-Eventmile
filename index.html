@@ -583,6 +583,14 @@ if(eventmileSupabase){
  </div>
 </div>
 
+<!-- PUBLIC ORGANIZER PROFILE -->
+<div id="publicHostProfileModal" class="modal-overlay hidden">
+ <div class="modal-card" style="max-width:680px;max-height:90vh;overflow:auto">
+  <div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">EVENTMILE ORGANIZER</div><h2>Organizer profile</h2></div><button class="close" onclick="hideModal('publicHostProfileModal')">✕</button></div>
+  <div id="publicHostProfileContent"></div>
+ </div>
+</div>
+
 <!-- ORGANISER DASHBOARD -->
 <div id="organiser-dashboard" class="hidden">
 <div class="dashboard-shell">
@@ -600,6 +608,7 @@ if(eventmileSupabase){
 <button class="tab-btn" id="tabManage" onclick="showDashTab('manage')">My Events</button>
 <button class="tab-btn" id="tabCancellations" onclick="showDashTab('cancellations');loadCancellationRequests()">Cancellation Requests</button>
 <button class="tab-btn" id="tabCheckin" onclick="showDashTab('checkin');loadCheckinEvents()">QR Check-in</button>
+<button class="tab-btn" id="tabAnalytics" onclick="showDashTab('analytics');loadOrganizerAnalyticsEvents()">Analytics</button>
 </div>
 
 <div id="builderTab">
@@ -697,6 +706,15 @@ if(eventmileSupabase){
  <h4>Checked-in attendees</h4><div id="checkedInAttendees"><div class="notice">No event selected.</div></div>
 </div>
 <div class="notice"><strong>Setup required:</strong> Run the EVENTMILE organizer check-in SQL function in Supabase before scanning. Camera access requires HTTPS and browser permission.</div>
+</div>
+<div id="analyticsTab" class="hidden">
+<h3>Event analytics</h3>
+<p style="color:var(--muted);font-size:13px">Review registrations, attendance and estimated ticket value for your events.</p>
+<div class="form-panel" style="margin:12px 0">
+<div class="field"><label>Select your event</label><select id="analyticsEventSelect" onchange="loadOrganizerAnalytics()"><option value="">Select an event…</option></select></div>
+<div class="actions"><button class="btn-primary" onclick="loadOrganizerAnalytics()">↻ Refresh analytics</button><button class="btn-dark" onclick="downloadOrganizerAnalyticsCSV()">⬇ Export analytics CSV</button></div>
+<div id="organizerAnalyticsResult" class="notice">Select an event to view analytics.</div>
+</div>
 </div>
 </div>
 </div>
@@ -899,6 +917,24 @@ function setCategory(category,button){
  renderEvents();
 }
 
+async function viewPublicHostProfile(profileId){
+ const box=$('publicHostProfileContent');
+ if(!box){alert('Organizer profile viewer is unavailable.');return;}
+ box.innerHTML='<div class="notice">Loading organizer profile…</div>';
+ showModal('publicHostProfileModal');
+ try{
+  let profile=eventmileHostProfilesCache.find(p=>p.id===profileId)||null;
+  if(eventmileSupabase){
+   const {data,error}=await eventmileSupabase.from('host_profiles').select('id,type,name,logo_url,description,location,social_url,created_at').eq('id',profileId).maybeSingle();
+   if(error)throw error;
+   if(data)profile={id:data.id,type:data.type,name:data.name,logo:data.logo_url||'',description:data.description||'',location:data.location||'',social:data.social_url||'',created_at:data.created_at};
+  }
+  if(!profile){box.innerHTML='<div class="notice">Organizer profile could not be loaded. The profile may not be publicly accessible yet.</div>';return;}
+  const hosted=allEvents().filter(e=>e.hostProfileId===profileId&&e.status==='Published');
+  box.innerHTML=`<div style="text-align:center;padding:18px 0 10px">${profile.logo?`<img src="${esc(profile.logo)}" alt="${esc(profile.name)}" style="width:90px;height:90px;object-fit:cover;border-radius:50%;border:1px solid var(--border)">`:`<div style="width:90px;height:90px;border-radius:50%;background:var(--panel);display:grid;place-items:center;margin:auto;font-size:32px">${profile.type==='organization'?'🏢':'🤝'}</div>`}<h2 style="margin:12px 0 4px">${esc(profile.name)}</h2><span class="tag">${profile.type==='organization'?'Organization':'Community'}</span>${profile.location?`<p style="color:var(--muted)">📍 ${esc(profile.location)}</p>`:''}</div><p>${esc(profile.description||'No organizer description added yet.')}</p>${profile.social?`<p><a href="${esc(profile.social)}" target="_blank" rel="noopener noreferrer" class="text-btn">Website / Social profile ↗</a></p>`:''}<hr style="border-color:var(--border);margin:18px 0"><h3>Published events (${hosted.length})</h3>${hosted.length?hosted.map(e=>`<div class="notice" style="margin:10px 0"><strong>${esc(e.title)}</strong><div style="color:var(--muted);margin:5px 0">${niceDate(e.date)} · ${esc(e.location||'Location TBA')}</div><button class="text-btn" onclick="hideModal('publicHostProfileModal');eventDetails('${e.id}')">View event ↗</button></div>`).join(''):'<p style="color:var(--muted)">No published events right now.</p>'}`;
+ }catch(err){console.error(err);box.innerHTML=`<div class="notice">Could not load organizer profile: ${esc(err.message||'Please try again later.')}</div>`;}
+}
+
 function eventDetails(id){
  const event=allEvents().find(e=>e.id===id);
  if(!event)return;
@@ -931,6 +967,7 @@ function eventDetails(id){
    <div class="event-info-box">
     <small>🏢 ORGANISER</small>
     <strong>${esc(event.organiser||'Event organiser')}</strong>
+    ${event.hostProfileId?`<button class="text-btn" style="display:block;margin-top:8px" onclick="viewPublicHostProfile('${event.hostProfileId}')">View organiser profile ↗</button>`:''}
    </div>
   </div>
 
@@ -1143,13 +1180,54 @@ function closeOrganiserDashboard(){
 }
 
 function showDashTab(tab){
- ['builder','preview','manage','cancellations','checkin'].forEach(t=>{
+ ['builder','preview','manage','cancellations','checkin','analytics'].forEach(t=>{
   $(t+'Tab').classList.toggle('hidden',t!==tab);
   $('tab'+t[0].toUpperCase()+t.slice(1)).classList.toggle('active',t===tab);
  });
  if(tab==='preview')renderPreview();
  if(tab==='manage')renderSavedEvents();
  if(tab==='cancellations')loadCancellationRequests();
+}
+
+let organizerAnalyticsCache=null;
+async function loadOrganizerAnalyticsEvents(){
+ const select=$('analyticsEventSelect'); if(!select)return;
+ if(!eventmileSupabase||!eventmileUser){select.innerHTML='<option value="">Sign in as organizer first</option>';return;}
+ select.innerHTML='<option value="">Loading your events…</option>';
+ try{
+  const {data,error}=await eventmileSupabase.from('events').select('id,title,event_date,status,price,tickets').eq('owner_id',eventmileUser.id).order('created_at',{ascending:false});
+  if(error)throw error;
+  if(!data||!data.length){select.innerHTML='<option value="">No events found</option>';return;}
+  select.innerHTML='<option value="">Select an event…</option>'+data.map(e=>`<option value="${esc(e.id)}">${esc(e.title||'Untitled event')} — ${esc(e.status||'')}</option>`).join('');
+ }catch(err){select.innerHTML='<option value="">Could not load events</option>';console.error('Analytics events:',err);}
+}
+async function loadOrganizerAnalytics(){
+ const eventId=$('analyticsEventSelect')?.value,box=$('organizerAnalyticsResult');
+ if(!eventId){box.innerHTML='Select an event to view analytics.';return;}
+ if(!eventmileSupabase||!eventmileUser){box.innerHTML='Please sign in as the organizer.';return;}
+ box.innerHTML='Loading analytics…';
+ try{
+  const {data:event,error:eventError}=await eventmileSupabase.from('events').select('id,title,event_date,status,price,tickets,capacity').eq('id',eventId).eq('owner_id',eventmileUser.id).single();
+  if(eventError)throw eventError;
+  const {data:regs,error:regError}=await eventmileSupabase.from('registrations').select('id,attendee_name,attendee_email,attendee_phone,ticket_quantity,ticket_price,ticket_name,registration_status,created_at,checked_in_at').eq('event_id',eventId);
+  if(regError)throw regError;
+  const all=regs||[],confirmed=all.filter(r=>(r.registration_status||'confirmed').toLowerCase()==='confirmed'),cancelled=all.filter(r=>(r.registration_status||'').toLowerCase()==='cancelled'),checked=confirmed.filter(r=>!!r.checked_in_at),notChecked=confirmed.length-checked.length;
+  const quantity=r=>Math.max(1,Number(r.ticket_quantity)||1);
+  const revenue=confirmed.reduce((sum,r)=>sum+(Number(r.ticket_price??event.price)||0)*quantity(r),0);
+  const attendance=confirmed.length?Math.round(checked.length/confirmed.length*100):0;
+  const counts={};confirmed.forEach(r=>{const key=r.ticket_name||'General admission';counts[key]=(counts[key]||0)+quantity(r)});
+  const ticketRows=Object.entries(counts).map(([name,count])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span>${esc(name)}</span><strong>${count}</strong></div>`).join('')||'<p>No confirmed tickets yet.</p>';
+  const days={};confirmed.forEach(r=>{const day=(r.created_at||'').slice(0,10)||'Unknown date';days[day]=(days[day]||0)+quantity(r)});
+  const trend=Object.entries(days).sort((a,b)=>a[0].localeCompare(b[0])).slice(-10).map(([day,n])=>`<div style="display:flex;align-items:center;gap:8px;margin:7px 0"><small style="width:90px">${esc(day)}</small><div style="height:12px;flex:1;background:#292d28;border-radius:9px;overflow:hidden"><div style="height:100%;width:${Math.max(4,n/Math.max(1,...Object.values(days))*100)}%;background:var(--lime)"></div></div><strong>${n}</strong></div>`).join('')||'No registration history yet.';
+  organizerAnalyticsCache={event,registrations:all,confirmed,cancelled,checked,revenue,attendance};
+  box.innerHTML=`<h4>${esc(event.title||'Event analytics')}</h4><div class="builder-grid" style="grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px"><div class="card-row"><small>Total registrations</small><h2>${all.length}</h2></div><div class="card-row"><small>Confirmed tickets</small><h2>${confirmed.length}</h2></div><div class="card-row"><small>Checked in</small><h2>${checked.length}</h2></div><div class="card-row"><small>Not checked in</small><h2>${notChecked}</h2></div><div class="card-row"><small>Cancelled</small><h2>${cancelled.length}</h2></div><div class="card-row"><small>Estimated ticket value</small><h2>₹${revenue.toLocaleString('en-IN')}</h2></div></div><div class="card-row" style="margin-top:12px"><div style="display:flex;justify-content:space-between"><strong>Attendance</strong><strong>${attendance}%</strong></div><div style="height:14px;background:#292d28;border-radius:20px;overflow:hidden;margin-top:8px"><div style="height:100%;width:${attendance}%;background:var(--lime)"></div></div></div><div class="builder-grid" style="margin-top:14px"><div class="card-row"><h4>Ticket breakdown</h4>${ticketRows}</div><div class="card-row"><h4>Registration trend (by day)</h4>${trend}</div></div><small style="color:var(--muted)">Estimated ticket value is calculated from confirmed ticket prices and quantities. It is not verified payment revenue.</small>`;
+ }catch(err){console.error('Organizer analytics:',err);box.innerHTML='<div class="notice" style="border-color:#ff6b6b">Could not load analytics: '+esc(err.message||'Check organizer access and database fields')+'</div>';}
+}
+function downloadOrganizerAnalyticsCSV(){
+ const cache=organizerAnalyticsCache;if(!cache){alert('Load an event analytics report first.');return;}
+ const rows=[['Event',cache.event.title||''],['Date',cache.event.event_date||''],['Total registrations',cache.registrations.length],['Confirmed tickets',cache.confirmed.length],['Checked in',cache.checked.length],['Cancelled',cache.cancelled.length],['Estimated ticket value',cache.revenue],[],['Attendee name','Email','Phone','Ticket','Quantity','Price','Status','Checked in at','Registered at']];
+ cache.registrations.forEach(r=>rows.push([r.attendee_name||'',r.attendee_email||'',r.attendee_phone||'',r.ticket_name||'',r.ticket_quantity||1,r.ticket_price??cache.event.price??0,r.registration_status||'confirmed',r.checked_in_at||'',r.created_at||'']));
+ const csv=rows.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=(cache.event.title||'event').replace(/[^a-z0-9_-]/gi,'_')+'_analytics.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
 
 let eventmileQrScanner=null;
