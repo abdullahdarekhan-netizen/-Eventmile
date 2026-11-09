@@ -736,6 +736,7 @@ function renderEvents(){
     <span>📍 ${esc(e.location)}</span>
     <span>👥 ${esc(e.age||'All ages')}</span>
    </div>
+   <div class="ticket-availability" id="slots-${e.id}">Checking availability…</div>
    <div class="event-bottom">
     <span class="price">${e.tickets?.length?money(Math.min(...e.tickets.map(t=>Number(t.price)||0))):'Details soon'}</span>
     <button class="text-btn" onclick="eventDetails('${e.id}')">View details ↗</button>
@@ -745,6 +746,7 @@ function renderEvents(){
  `).join('');
 
  $('noEvents').classList.toggle('hidden',events.length>0);
+  events.forEach(e => loadEventCardAvailability(e.id));
 }
 
 function setCategory(category,button){
@@ -752,6 +754,47 @@ function setCategory(category,button){
  document.querySelectorAll('.filter').forEach(b=>b.classList.remove('active'));
  button.classList.add('active');
  renderEvents();
+  async function loadEventCardAvailability(eventId) {
+    const box = document.getElementById('slots-' + eventId);
+    if (!box) return;
+
+    const uuidPattern =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    if (!uuidPattern.test(String(eventId))) {
+        box.textContent = 'Availability shown during registration';
+        return;
+    }
+
+    if (!eventmileSupabase) {
+        box.textContent = 'Availability unavailable';
+        return;
+    }
+
+    try {
+        const { data, error } = await eventmileSupabase.rpc(
+            'event_tickets_remaining',
+            { p_event_id: eventId }
+        );
+
+        if (error) throw error;
+
+        const remaining = Number(data);
+
+        if (!Number.isFinite(remaining)) {
+            box.textContent = 'Availability unavailable';
+        } else if (remaining <= 0) {
+            box.textContent = '🔴 Sold out';
+        } else {
+            box.textContent = '🎟️ ' +
+                remaining.toLocaleString('en-IN') +
+                ' tickets available';
+        }
+    } catch (error) {
+        console.error('Ticket availability error:', error);
+        box.textContent = 'Check availability during registration';
+    }
+}
 }
 
 function eventDetails(id){
