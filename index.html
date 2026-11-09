@@ -691,6 +691,11 @@ if(eventmileSupabase){
  <div class="field" style="margin-top:18px"><label>Or enter ticket QR code manually</label><input id="manualTicketCode" placeholder="Paste ticket code / UUID"></div>
  <button class="btn-primary" onclick="checkinManualTicket()">Verify & check in ticket</button>
 </div>
+<div class="form-panel" style="margin:14px 0">
+ <div class="actions" style="justify-content:space-between;align-items:center;flex-wrap:wrap"><h3 style="margin:0">Live check-in overview</h3><div class="actions"><button class="btn-dark" onclick="loadCheckinStats()">↻ Refresh</button><button class="btn-primary" onclick="downloadEventCheckinReport()">⬇ Download check-in report CSV</button></div></div>
+ <div id="checkinStats" class="notice">Select an event to load attendance statistics.</div>
+ <h4>Checked-in attendees</h4><div id="checkedInAttendees"><div class="notice">No event selected.</div></div>
+</div>
 <div class="notice"><strong>Setup required:</strong> Run the EVENTMILE organizer check-in SQL function in Supabase before scanning. Camera access requires HTTPS and browser permission.</div>
 </div>
 </div>
@@ -1169,7 +1174,54 @@ async function loadCheckinEvents(){
   if(error)throw error;
   if(!data||!data.length){select.innerHTML='<option value="">No events found for this organizer</option>';return;}
   select.innerHTML='<option value="">Select an event…</option>'+data.map(e=>`<option value="${esc(e.id)}">${esc(e.title||'Untitled event')} — ${esc(e.event_date||'')}</option>`).join('');
+  select.onchange=()=>loadCheckinStats();
+  if(select.value)await loadCheckinStats();
  }catch(err){console.error('Load check-in events:',err);select.innerHTML='<option value="">Could not load events</option>';}
+}
+
+async function downloadEventCheckinReport(){
+ const eventId=$('checkinEventSelect')?.value;
+ if(!eventId){alert('Select an event first.');return;}
+ if(!eventmileSupabase||!eventmileUser){alert('Please sign in as the organizer.');return;}
+ try{
+  toast('Preparing check-in report…');
+  const {data:eventData,error:eventError}=await eventmileSupabase.from('events').select('id,title,event_date').eq('id',eventId).eq('owner_id',eventmileUser.id).single();
+  if(eventError)throw eventError;
+  const {data,error}=await eventmileSupabase.from('registrations').select('attendee_name,attendee_email,attendee_phone,ticket_name,ticket_price,registration_status,checked_in_at,created_at').eq('event_id',eventId).order('created_at',{ascending:true});
+  if(error)throw error;
+  const rows=data||[];
+  const headers=['Event','Event Date','Attendee Name','Email','Phone','Ticket','Ticket Price','Registration Status','Check-in Status','Checked-in At','Registered At'];
+  const csvCell=value=>{const text=String(value??'');return '"'+text.replace(/"/g,'""')+'"';};
+  const report=rows.map(r=>[eventData.title,eventData.event_date,r.attendee_name,r.attendee_email,r.attendee_phone,r.ticket_name,r.ticket_price,r.registration_status,r.checked_in_at?'Checked in':(r.registration_status==='cancelled'?'Cancelled':'Not checked in'),r.checked_in_at?new Date(r.checked_in_at).toLocaleString('en-IN'): '',r.created_at?new Date(r.created_at).toLocaleString('en-IN'):'']);
+  const csv='\uFEFF'+[headers,...report].map(row=>row.map(csvCell).join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;
+  const safeName=(eventData.title||'event').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'');
+  a.download=(safeName||'event')+'_checkin_report.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  toast('Check-in report downloaded!');
+ }catch(err){console.error('Check-in report export:',err);alert('Could not export report: '+(err.message||'Check organizer permissions'));}
+}
+
+async function loadCheckinStats(){
+ const eventId=$('checkinEventSelect')?.value,stats=$('checkinStats'),list=$('checkedInAttendees');
+ if(!stats||!list)return;
+ if(!eventId){stats.innerHTML='Select an event to view check-in statistics.';list.innerHTML='<div class="notice">No event selected.</div>';return;}
+ stats.innerHTML='Loading attendance…';list.innerHTML='Loading checked-in attendees…';
+ try{
+  const {data,error}=await eventmileSupabase.from('registrations').select('id,attendee_name,attendee_email,attendee_phone,ticket_name,registration_status,checked_in_at').eq('event_id',eventId).order('checked_in_at',{ascending:false});
+  if(error)throw error;
+  const rows=data||[],confirmed=rows.filter(r=>r.registration_status==='confirmed'),checked=confirmed.filter(r=>r.checked_in_at),cancelled=rows.filter(r=>r.registration_status==='cancelled'),notYet=confirmed.filter(r=>!r.checked_in_at);
+  const attendancePercent=confirmed.length?Math.round((checked.length/confirmed.length)*100):0;
+  stats.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px"><div class="notice"><strong>Total registrations</strong><br>${rows.length}</div><div class="notice"><strong>Confirmed</strong><br>${confirmed.length}</div><div class="notice" style="border-color:var(--lime)"><strong>Checked in</strong><br>${checked.length}</div><div class="notice"><strong>Not checked in</strong><br>${notYet.length}</div><div class="notice"><strong>Cancelled</strong><br>${cancelled.length}</div></div>
+  <div class="notice" style="border-color:var(--lime)">
+   <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px"><strong>Attendance progress</strong><strong style="color:var(--lime);font-size:1.25rem">${attendancePercent}%</strong></div>
+   <div role="progressbar" aria-label="Attendance progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${attendancePercent}" style="width:100%;height:16px;background:#292d28;border-radius:999px;overflow:hidden">
+    <div style="height:100%;width:${attendancePercent}%;background:var(--lime);border-radius:999px;transition:width .35s ease"></div>
+   </div>
+   <small style="display:block;margin-top:8px">${checked.length} of ${confirmed.length} confirmed attendees checked in${confirmed.length===0?' — no confirmed registrations yet.':''}</small>
+  </div>`;
+  list.innerHTML=checked.length?checked.map(r=>`<div class="card-row" style="margin:8px 0;padding:12px"><strong>✅ ${esc(r.attendee_name||'Attendee')}</strong><p>${esc(r.ticket_name||'Ticket')} · ${esc(r.attendee_email||'')}</p><small>Checked in: ${r.checked_in_at?new Date(r.checked_in_at).toLocaleString('en-IN'):'—'}</small></div>`).join(''):'<div class="notice">No attendees checked in yet.</div>';
+ }catch(err){console.error('Check-in stats:',err);stats.innerHTML='<div class="notice" style="border-color:#ff6b6b">Could not load stats: '+esc(err.message||'Check organizer permissions')+'</div>';list.innerHTML='';}
 }
 
 async function startEventmileScanner(){
@@ -1208,6 +1260,7 @@ async function processEventmileCheckin(rawCode){
   if(result&&result.success){
    $('checkinResult').innerHTML=`<div class="notice" style="border-color:var(--lime)"><strong>✅ CHECK-IN SUCCESSFUL</strong><br>${esc(result.attendee_name||'Attendee')}<br>${esc(result.ticket_name||'Ticket')}<br>${esc(result.event_title||'Event')}<br><small>Checked in: ${esc(result.checked_in_at||new Date().toLocaleString())}</small></div>`;
    $('manualTicketCode').value='';
+   await loadCheckinStats();
   }else{
    const msg=result?.message||'Ticket check-in was rejected.';
    $('checkinResult').innerHTML=`<div class="notice" style="border-color:#ff6b6b"><strong>❌ CHECK-IN REJECTED</strong><br>${esc(msg)}</div>`;
